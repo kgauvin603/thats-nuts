@@ -1,0 +1,44 @@
+[
+  {
+    "aliases": ["prunus amygdalus dulcis oil", "sweet almond oil"],
+    "nut_source": "almond",
+    "confidence": "high",
+    "reason": "Known almond-derived cosmetic ingredient"
+  },
+  {
+    "aliases": ["arachis hypogaea oil", "peanut oil"],
+    "nut_source": "peanut",
+    "confidence": "high",
+    "reason": "Known peanut-derived cosmetic ingredient"
+  },
+  {
+    "aliases": ["macadamia ternifolia seed oil", "macadamia integrifolia seed oil"],
+    "nut_source": "macadamia",
+    "confidence": "high",
+    "reason": "Known macadamia-derived cosmetic ingredient"
+  },
+  {
+    "aliases": ["argania spinosa kernel oil"],
+    "nut_source": "argan",
+    "confidence": "high",
+    "reason": "Known argan-derived cosmetic ingredient"
+  },
+  {
+    "aliases": ["butyrospermum parkii butter", "shea butter"],
+    "nut_source": "shea",
+    "confidence": "high",
+    "reason": "Known shea-derived cosmetic ingredient"
+  },
+  {
+    "aliases": ["aleurites moluccanus seed oil"],
+    "nut_source": "kukui",
+    "confidence": "high",
+    "reason": "Known kukui-derived cosmetic ingredient"
+  },
+  {
+    "aliases": ["botanical oil blend", "nutrient oil blend"],
+    "nut_source": "unknown",
+    "confidence": "medium",
+    "reason": "Blend naming is too generic to verify botanical source with confidence"
+  }
+]
