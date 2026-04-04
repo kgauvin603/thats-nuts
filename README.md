@@ -36,9 +36,12 @@ This repository currently includes:
 - FastAPI backend scaffold
 - ingredient parsing service
 - starter nut rules engine
+- PostgreSQL-ready persistence layer with SQLModel
+- product lookup cache and scan history persistence
 - seed ingredient dictionary
 - health endpoint
 - ingredient check endpoint
+- product lookup endpoint
 - unit tests
 - basic CI workflow
 
@@ -66,23 +69,68 @@ Admin review tools and correction workflow
 ## Local backend quick start
 
 ```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+cp backend/.env.example backend/.env
+./scripts/run_backend.sh
 ```
+
+For database-backed local development, use [backend/.env.example](/mnt/apps/ThatsNuts/backend/.env.example) as the reference configuration. The backend defaults to `sqlite:///./thatsnuts.db`, and PostgreSQL can be enabled with `DATABASE_URL=postgresql+psycopg://...`.
+
+For Oracle Linux 9 service-style deployment, see [backend/README.md](/mnt/apps/ThatsNuts/backend/README.md) for exact startup steps and a `systemd` unit example.
+
+For deterministic product lookup demos, the backend also ships a small barcode dataset plus a preload helper. See the `Demo barcodes` section in [backend/README.md](/mnt/apps/ThatsNuts/backend/README.md).
+
+For backend operator testing without a separate frontend build, open `http://127.0.0.1:8002/test-ui` after starting the API. The page exposes health, ingredient checks, barcode lookups, and recent scan history using the live backend routes; see the `Internal test UI` section in [backend/README.md](/mnt/apps/ThatsNuts/backend/README.md).
+
+## Demo barcodes
+
+The current lookup flow checks the local product cache before calling the configured provider. That makes the checked-in demo barcode dataset reliable for local demos and test runs without changing provider behavior.
+
+The dataset lives at [demo_barcodes.json](/mnt/apps/ThatsNuts/backend/app/data/demo_barcodes.json). Each entry includes:
+
+- `barcode`
+- `product_name`
+- `expected_status`
+- `reason`
+
+Recommended demo flow:
+
+```bash
+cp backend/.env.example backend/.env
+./scripts/run_backend.sh
+backend/.venv/bin/python scripts/load_demo_barcodes.py
+```
+
+That seeds the local product cache with four known cases:
+
+- `9900000000001` -> `contains_nut_ingredient`
+- `9900000000002` -> `possible_nut_derived_ingredient`
+- `9900000000003` -> `no_nut_ingredient_found`
+- `9900000000004` -> `cannot_verify`
+
+You can then test them in either of these ways:
+
+```bash
+backend/.venv/bin/python scripts/load_demo_barcodes.py --list-only
+```
+
+```bash
+curl -X POST http://127.0.0.1:8002/lookup-product \
+  -H "Content-Type: application/json" \
+  -d '{"barcode":"9900000000001"}'
+```
+
+Or open `http://127.0.0.1:8002/test-ui` and paste one of the demo barcodes into the `Barcode Lookup` panel.
 
 Health check:
 
 ```bash
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8002/health
 ```
 
 Ingredient check example:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/check-ingredients \
+curl -X POST http://127.0.0.1:8002/check-ingredients \
   -H "Content-Type: application/json" \
   -d '{
     "ingredient_text": "Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance"
@@ -111,9 +159,15 @@ curl -X POST http://127.0.0.1:8000/check-ingredients \
 
 This project is intended to help identify nut-related ingredients from available label data. It does not guarantee medical safety, cross-contact safety, or completeness of manufacturer disclosures.
 
+## Persistence notes
+
+- `POST /check-ingredients` keeps the existing seed-rule behavior and now writes scan history and allergy-profile records when the database is available.
+- `POST /lookup-product` now caches normalized products in the database by barcode.
+- Startup creates tables automatically when `DATABASE_AUTO_CREATE=true` and seeds normalized ingredient tables when `DATABASE_SEED_DATA=true`.
+- `POST /lookup-product` can now use a real provider-backed integration when `PRODUCT_LOOKUP_PROVIDER=open_food_facts`.
+
 ## Next build target
 
-- persist rules in PostgreSQL
-- add product lookup cache
-- add barcode lookup service
+- improve the first real barcode provider with retries, better normalization, and refresh rules
+- add admin workflows for reviewing ingredient mappings in the database
 - scaffold Flutter mobile app

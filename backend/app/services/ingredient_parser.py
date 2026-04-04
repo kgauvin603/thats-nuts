@@ -12,6 +12,19 @@ AMBIGUOUS_TERMS = {
     "plant lipid concentrate",
 }
 
+UNUSABLE_TERMS = {
+    "n/a",
+    "na",
+    "none",
+    "unknown",
+    "not provided",
+    "not available",
+    "ingredients unavailable",
+    "see packaging",
+    "see package",
+    "see label",
+}
+
 
 def normalize_text(value: str) -> str:
     value = value.lower().strip()
@@ -26,13 +39,21 @@ def split_ingredients(ingredient_text: str) -> List[str]:
     return [part.strip() for part in raw_parts if part.strip()]
 
 
+def is_unusable_term(normalized_value: str) -> bool:
+    return not normalized_value or normalized_value in UNUSABLE_TERMS
+
+
 def parse_ingredients(ingredient_text: str) -> List[dict]:
     ingredients = split_ingredients(ingredient_text)
-    return [
-        {
-            "original_text": ingredient,
-            "normalized_name": normalize_text(ingredient),
-            "is_ambiguous": normalize_text(ingredient) in AMBIGUOUS_TERMS,
-        }
-        for ingredient in ingredients
-    ]
+    parsed = []
+    for ingredient in ingredients:
+        normalized = normalize_text(ingredient)
+        parsed.append(
+            {
+                "original_text": ingredient,
+                "normalized_name": normalized,
+                "is_ambiguous": normalized in AMBIGUOUS_TERMS,
+                "is_unusable": is_unusable_term(normalized),
+            }
+        )
+    return parsed

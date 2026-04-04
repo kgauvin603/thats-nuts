@@ -1,0 +1,46 @@
+[
+  {
+    "barcode": "9900000000001",
+    "product_name": "Demo Almond Hand Oil",
+    "brand_name": "Thats Nuts Demo",
+    "image_url": "https://images.example.invalid/demo/9900000000001.jpg",
+    "ingredient_text": "Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance",
+    "ingredient_coverage_status": "complete",
+    "source": "demo_dataset",
+    "expected_status": "contains_nut_ingredient",
+    "reason": "Contains sweet almond oil, which maps directly to the almond seed rule."
+  },
+  {
+    "barcode": "9900000000002",
+    "product_name": "Demo Botanical Blend Lotion",
+    "brand_name": "Thats Nuts Demo",
+    "image_url": "https://images.example.invalid/demo/9900000000002.jpg",
+    "ingredient_text": "Water, Vegetable Oil, Fragrance",
+    "ingredient_coverage_status": "complete",
+    "source": "demo_dataset",
+    "expected_status": "possible_nut_derived_ingredient",
+    "reason": "Uses generic vegetable oil wording, which the current rules engine treats as possible nut-derived."
+  },
+  {
+    "barcode": "9900000000003",
+    "product_name": "Demo Aloe Gel",
+    "brand_name": "Thats Nuts Demo",
+    "image_url": "https://images.example.invalid/demo/9900000000003.jpg",
+    "ingredient_text": "Water, Glycerin, Aloe Barbadensis Leaf Juice, Fragrance",
+    "ingredient_coverage_status": "complete",
+    "source": "demo_dataset",
+    "expected_status": "no_nut_ingredient_found",
+    "reason": "Uses a simple ingredient list with no current nut-rule matches."
+  },
+  {
+    "barcode": "9900000000004",
+    "product_name": "Demo Mystery Serum",
+    "brand_name": "Thats Nuts Demo",
+    "image_url": "https://images.example.invalid/demo/9900000000004.jpg",
+    "ingredient_text": null,
+    "ingredient_coverage_status": "missing",
+    "source": "demo_dataset",
+    "expected_status": "cannot_verify",
+    "reason": "Represents a cached product record with no ingredient list to assess."
+  }
+]

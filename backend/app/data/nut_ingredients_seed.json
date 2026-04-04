@@ -3,42 +3,56 @@
     "aliases": ["prunus amygdalus dulcis oil", "sweet almond oil"],
     "nut_source": "almond",
     "confidence": "high",
+    "status": "contains_nut_ingredient",
     "reason": "Known almond-derived cosmetic ingredient"
   },
   {
     "aliases": ["arachis hypogaea oil", "peanut oil"],
     "nut_source": "peanut",
     "confidence": "high",
+    "status": "contains_nut_ingredient",
     "reason": "Known peanut-derived cosmetic ingredient"
   },
   {
     "aliases": ["macadamia ternifolia seed oil", "macadamia integrifolia seed oil"],
     "nut_source": "macadamia",
     "confidence": "high",
+    "status": "contains_nut_ingredient",
     "reason": "Known macadamia-derived cosmetic ingredient"
   },
   {
     "aliases": ["argania spinosa kernel oil"],
     "nut_source": "argan",
     "confidence": "high",
+    "status": "contains_nut_ingredient",
     "reason": "Known argan-derived cosmetic ingredient"
   },
   {
     "aliases": ["butyrospermum parkii butter", "shea butter"],
     "nut_source": "shea",
     "confidence": "high",
+    "status": "contains_nut_ingredient",
     "reason": "Known shea-derived cosmetic ingredient"
   },
   {
     "aliases": ["aleurites moluccanus seed oil"],
     "nut_source": "kukui",
     "confidence": "high",
+    "status": "contains_nut_ingredient",
     "reason": "Known kukui-derived cosmetic ingredient"
   },
   {
     "aliases": ["botanical oil blend", "nutrient oil blend"],
     "nut_source": "unknown",
     "confidence": "medium",
+    "status": "possible_nut_derived_ingredient",
     "reason": "Blend naming is too generic to verify botanical source with confidence"
+  },
+  {
+    "aliases": ["vegetable oil", "plant oil"],
+    "nut_source": "unknown",
+    "confidence": "possible",
+    "status": "possible_nut_derived_ingredient",
+    "reason": "Generic oil naming may hide peanut or tree nut oils, but the source is unspecified"
   }
 ]
