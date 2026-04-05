@@ -27,6 +27,9 @@ PRODUCT_NOT_FOUND_EXPLANATION = (
     "No product record was found for this barcode in the local cache or from the configured "
     "lookup provider."
 )
+MANUAL_ENRICHMENT_EXPLANATION = (
+    "Product data was saved from a locally submitted ingredient list for this barcode."
+)
 OPEN_FOOD_FACTS_FIELDS = (
     "code,product_name,product_name_en,generic_name,generic_name_en,"
     "brands,brands_tags,ingredients_text,ingredients_text_en,"
@@ -275,13 +278,18 @@ class ProductLookupService:
         if product:
             return self._build_assessed_response(
                 product,
-                source_explanation="Product data was returned from the local product cache.",
+                source_explanation=self._build_cached_source_explanation(product),
                 allergy_profile=allergy_profile,
             )
 
         try:
             product = self.provider.lookup_by_barcode(barcode)
         except ProductLookupProviderError:
+            self._persist_unsuccessful_lookup(
+                barcode,
+                PROVIDER_FAILURE_EXPLANATION,
+                allergy_profile=allergy_profile,
+            )
             return ProductLookupResponse(
                 found=False,
                 product=None,
@@ -291,6 +299,11 @@ class ProductLookupService:
                 explanation=PROVIDER_FAILURE_EXPLANATION,
             )
         except Exception:
+            self._persist_unsuccessful_lookup(
+                barcode,
+                PROVIDER_FAILURE_EXPLANATION,
+                allergy_profile=allergy_profile,
+            )
             return ProductLookupResponse(
                 found=False,
                 product=None,
@@ -300,6 +313,11 @@ class ProductLookupService:
                 explanation=PROVIDER_FAILURE_EXPLANATION,
             )
         if not product:
+            self._persist_unsuccessful_lookup(
+                barcode,
+                PRODUCT_NOT_FOUND_EXPLANATION,
+                allergy_profile=allergy_profile,
+            )
             return ProductLookupResponse(
                 found=False,
                 product=None,
@@ -311,6 +329,35 @@ class ProductLookupService:
         return self._build_assessed_response(
             product,
             source_explanation=f"Product data was returned by the configured {product.source} provider.",
+            allergy_profile=allergy_profile,
+        )
+
+    def enrich_barcode_with_ingredients(
+        self,
+        barcode: str,
+        ingredient_text: str,
+        product_name: Optional[str] = None,
+        brand_name: Optional[str] = None,
+        source: Optional[str] = None,
+        allergy_profile: Optional[AllergyProfile] = None,
+    ) -> ProductLookupResponse:
+        existing_product = get_cached_product(barcode)
+        normalized_source = (source or "manual_entry").strip() or "manual_entry"
+        cleaned_ingredient_text = ingredient_text.strip()
+
+        product = NormalizedProduct(
+            barcode=barcode,
+            product_name=product_name or (existing_product.product_name if existing_product else None),
+            brand_name=brand_name or (existing_product.brand_name if existing_product else None),
+            image_url=existing_product.image_url if existing_product else None,
+            ingredient_text=cleaned_ingredient_text,
+            ingredient_coverage_status="complete",
+            source=normalized_source,
+        )
+
+        return self._build_assessed_response(
+            product,
+            source_explanation=MANUAL_ENRICHMENT_EXPLANATION,
             allergy_profile=allergy_profile,
         )
 
@@ -333,6 +380,8 @@ class ProductLookupService:
                 assessment,
                 allergy_profile=allergy_profile,
                 product_id=product_id,
+                scan_type="barcode_lookup",
+                submitted_barcode=product.barcode,
             )
             return ProductLookupResponse(
                 found=True,
@@ -357,6 +406,8 @@ class ProductLookupService:
             assessment,
             allergy_profile=allergy_profile,
             product_id=product_id,
+            scan_type="barcode_lookup",
+            submitted_barcode=product.barcode,
         )
         return ProductLookupResponse(
             found=True,
@@ -378,6 +429,30 @@ class ProductLookupService:
             parts.append(PARTIAL_INGREDIENT_COVERAGE_EXPLANATION)
         parts.append(assessment_explanation)
         return " ".join(parts)
+
+    @staticmethod
+    def _persist_unsuccessful_lookup(
+        barcode: str,
+        explanation: str,
+        allergy_profile: Optional[AllergyProfile] = None,
+    ) -> None:
+        persist_scan_result(
+            "",
+            {
+                "status": "cannot_verify",
+                "matched_ingredients": [],
+                "explanation": explanation,
+            },
+            allergy_profile=allergy_profile,
+            scan_type="barcode_lookup",
+            submitted_barcode=barcode,
+        )
+
+    @staticmethod
+    def _build_cached_source_explanation(product: NormalizedProduct) -> str:
+        if product.source in {"manual_entry", "text_scan"}:
+            return "Product data was returned from the local barcode enrichment cache."
+        return "Product data was returned from the local product cache."
 
 
 def build_provider_settings() -> ProductLookupProviderSettings:

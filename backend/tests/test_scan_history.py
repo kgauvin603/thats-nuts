@@ -36,6 +36,7 @@ def test_recent_scan_history_returns_manual_and_barcode_checks(temp_database):
     assert older_item.barcode is None
     assert older_item.product_name is None
     assert older_item.brand_name is None
+    assert older_item.submitted_ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
     assert older_item.assessment_status == "contains_nut_ingredient"
     assert older_item.matched_ingredient_summary == "Prunus Amygdalus Dulcis Oil"
     assert older_item.created_at is not None
@@ -60,3 +61,24 @@ def test_recent_scan_history_respects_limit(temp_database):
 
     assert len(response.items) == 1
     assert response.items[0].scan_type == "manual_ingredient_check"
+
+
+def test_recent_scan_history_includes_unsuccessful_barcode_lookups(temp_database):
+    assert prepare_persistence() is True
+
+    lookup_product(ProductLookupRequest(barcode="9999999999999"))
+
+    response = recent_scan_history(limit=10)
+
+    assert len(response.items) == 1
+    item = response.items[0]
+    assert item.scan_type == "barcode_lookup"
+    assert item.barcode == "9999999999999"
+    assert item.product_name is None
+    assert item.brand_name is None
+    assert item.submitted_ingredient_text is None
+    assert item.assessment_status == "cannot_verify"
+    assert item.explanation == (
+        "No product record was found for this barcode in the local cache or from the configured "
+        "lookup provider."
+    )

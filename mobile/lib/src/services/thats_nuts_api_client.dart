@@ -75,6 +75,44 @@ class ThatsNutsApiClient {
     return ProductLookupResult.fromJson(payload);
   }
 
+  Future<ProductLookupResult> enrichProduct(
+    String barcode, {
+    required String ingredientText,
+    String? productName,
+    String? brandName,
+    String? source,
+    AllergyProfile? allergyProfile,
+  }) async {
+    final response = await _httpClient.post(
+      Uri.parse('$_baseUrl/enrich-product'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode(
+        _buildRequestBody(
+          {
+            'barcode': barcode,
+            'ingredient_text': ingredientText,
+            if (productName != null && productName.trim().isNotEmpty)
+              'product_name': productName.trim(),
+            if (brandName != null && brandName.trim().isNotEmpty)
+              'brand_name': brandName.trim(),
+            if (source != null && source.trim().isNotEmpty)
+              'source': source.trim(),
+          },
+          allergyProfile,
+        ),
+      ),
+    );
+
+    if (response.statusCode != 200) {
+      throw ThatsNutsApiException(
+        'Backend request failed with status ${response.statusCode}.',
+      );
+    }
+
+    final payload = jsonDecode(response.body) as Map<String, dynamic>;
+    return ProductLookupResult.fromJson(payload);
+  }
+
   Future<ScanHistoryResponse> fetchScanHistory({int limit = 20}) async {
     final response = await _httpClient.get(
       Uri.parse('$_baseUrl/scan-history?limit=$limit'),

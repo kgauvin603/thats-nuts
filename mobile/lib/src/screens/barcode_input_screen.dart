@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/allergy_profile.dart';
+import '../models/product_lookup_models.dart';
 import '../services/thats_nuts_api_client.dart';
+import 'barcode_enrichment_screen.dart';
 import 'barcode_scanner_screen.dart';
 import 'result_screen.dart';
 
@@ -54,14 +56,7 @@ class _BarcodeInputScreenState extends State<BarcodeInputScreen> {
       if (!mounted) {
         return;
       }
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => ResultScreen.forProductLookup(
-            barcode: barcode,
-            result: result,
-          ),
-        ),
-      );
+      await _openLookupResult(barcode, result);
     } on ThatsNutsApiException catch (error) {
       setState(() {
         _errorMessage = error.message;
@@ -77,6 +72,33 @@ class _BarcodeInputScreenState extends State<BarcodeInputScreen> {
         });
       }
     }
+  }
+
+  Future<void> _openLookupResult(String barcode, ProductLookupResult result) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => ResultScreen.forProductLookup(
+          barcode: barcode,
+          result: result,
+          fallbackActionLabel: result.canAddIngredientsFallback
+              ? 'Add Ingredients for This Barcode'
+              : null,
+          onFallbackAction: result.canAddIngredientsFallback
+              ? (screenContext) => Navigator.of(screenContext).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => BarcodeEnrichmentScreen(
+                        apiClient: widget.apiClient,
+                        allergyProfile: widget.allergyProfile,
+                        barcode: barcode,
+                        initialProductName: result.product?.productName,
+                        initialBrandName: result.product?.brandName,
+                      ),
+                    ),
+                  )
+              : null,
+        ),
+      ),
+    );
   }
 
   @override

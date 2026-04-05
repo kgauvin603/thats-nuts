@@ -138,7 +138,9 @@ class ScanHistory(SQLModel, table=True):
     __tablename__ = "scan_history"
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    scan_type: str = Field(default="manual_ingredient_check", index=True)
     product_id: Optional[int] = Field(default=None, foreign_key="products.id", index=True)
+    submitted_barcode: Optional[str] = Field(default=None, index=True)
     allergy_profile_id: Optional[int] = Field(
         default=None,
         foreign_key="allergy_profiles.id",

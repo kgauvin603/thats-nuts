@@ -45,15 +45,23 @@ void main() {
 
     expect(find.byKey(const Key('result-status-banner')), findsOneWidget);
     expect(find.text('AVOID'), findsOneWidget);
-    expect(find.text('Contains nut ingredient'), findsOneWidget);
-    expect(find.text('1 flagged ingredient'), findsOneWidget);
+    expect(find.text('Contains nut ingredient'), findsNWidgets(2));
+    expect(find.text('1 flagged ingredient'), findsNWidgets(2));
+    expect(find.text('Quick Summary'), findsOneWidget);
+    expect(find.text('What to do next'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Product'),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Product'), findsOneWidget);
+    expect(find.text('Product name'), findsOneWidget);
     expect(find.text('Sample Lotion'), findsOneWidget);
     expect(find.text('Test Brand'), findsOneWidget);
     expect(find.text('012345678905'), findsOneWidget);
-    expect(find.text('Partial ingredient coverage'), findsNWidgets(2));
-
-    expect(find.text('Explanation'), findsOneWidget);
+    expect(find.text('Partial ingredient coverage'), findsOneWidget);
+    expect(find.text('Ingredient coverage'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Flagged Ingredients'),
       250,
@@ -93,18 +101,65 @@ void main() {
 
     expect(find.byKey(const Key('result-status-banner')), findsOneWidget);
     expect(find.text('CANNOT CONFIRM'), findsOneWidget);
-    expect(find.text('Cannot verify'), findsOneWidget);
+    expect(find.text('Cannot verify'), findsNWidgets(2));
+    expect(find.text('What to do next'), findsOneWidget);
     expect(
       find.text(
         'The ingredient data was missing, incomplete, or too vague to assess confidently.',
       ),
       findsOneWidget,
     );
+    await tester.scrollUntilVisible(
+      find.text('No matched ingredients returned.'),
+      250,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('No matched ingredients returned.'), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -400));
     await tester.pumpAndSettle();
 
     expect(find.text('Check Another Ingredient List'), findsOneWidget);
     expect(find.text('Back'), findsOneWidget);
+  });
+
+  testWidgets('shows barcode enrichment fallback action when provided',
+      (WidgetTester tester) async {
+    var tapped = false;
+    const result = ProductLookupResult(
+      found: false,
+      product: null,
+      ingredientText: null,
+      assessmentResult: null,
+      matchedIngredients: [],
+      explanation: 'No product record was found.',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResultScreen.forProductLookup(
+          barcode: '9999999999999',
+          result: result,
+          fallbackActionLabel: 'Add Ingredients for This Barcode',
+          onFallbackAction: (context) async {
+            tapped = true;
+          },
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('result-fallback-action')),
+      250,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('result-fallback-action')), findsOneWidget);
+    expect(find.text('Add Ingredients for This Barcode'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('result-fallback-action')));
+    await tester.pump();
+
+    expect(tapped, isTrue);
   });
 }

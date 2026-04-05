@@ -17,6 +17,15 @@ class ProductLookupResult {
   final List<MatchedIngredient> matchedIngredients;
   final String explanation;
 
+  bool get canAddIngredientsFallback {
+    final hasUsableIngredientText =
+        ingredientText != null && ingredientText!.trim().isNotEmpty;
+    if (!found) {
+      return true;
+    }
+    return assessmentResult == 'cannot_verify' && !hasUsableIngredientText;
+  }
+
   factory ProductLookupResult.fromJson(Map<String, dynamic> json) {
     final items = json['matched_ingredients'] as List<dynamic>? ?? const [];
     final productJson = json['product'] as Map<String, dynamic>?;
@@ -27,7 +36,8 @@ class ProductLookupResult {
       ingredientText: json['ingredient_text'] as String?,
       assessmentResult: json['assessment_result'] as String?,
       matchedIngredients: items
-          .map((item) => MatchedIngredient.fromJson(item as Map<String, dynamic>))
+          .map((item) =>
+              MatchedIngredient.fromJson(item as Map<String, dynamic>))
           .toList(),
       explanation: json['explanation'] as String? ?? 'No explanation returned.',
     );

@@ -109,6 +109,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return '${local.year}-$month-$day $hour:$minute';
   }
 
+  String _entryTitle(ScanHistoryItem item) {
+    if (item.productName != null && item.productName!.trim().isNotEmpty) {
+      return item.productName!;
+    }
+    if (item.scanType == 'barcode_lookup') {
+      return 'Barcode lookup';
+    }
+    return 'Manual ingredient check';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -190,7 +200,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               ).withOpacity(0.12),
                               side: BorderSide.none,
                               labelStyle: TextStyle(
-                                color: _statusColor(context, item.assessmentStatus),
+                                color: _statusColor(
+                                    context, item.assessmentStatus),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -198,22 +209,39 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          item.productName ?? 'Manual ingredient check',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                          _entryTitle(item),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                         if (item.brandName != null) ...[
                           const SizedBox(height: 4),
                           Text(
                             item.brandName!,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                                 ),
                           ),
                         ],
                         const SizedBox(height: 10),
-                        if (item.barcode != null) Text('Barcode: ${item.barcode}'),
+                        if (item.barcode != null)
+                          Text('Barcode: ${item.barcode}'),
+                        if (item.submittedIngredientText != null &&
+                            item.submittedIngredientText!
+                                .trim()
+                                .isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            item.submittedIngredientText!,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
                         Text('Checked: ${_formatCreatedAt(item.createdAt)}'),
                         if (item.explanation != null) ...[
                           const SizedBox(height: 10),
@@ -226,9 +254,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           const SizedBox(height: 10),
                           Text(
                             'Matched: ${item.matchedIngredientSummary}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                           ),
                         ],
                       ],

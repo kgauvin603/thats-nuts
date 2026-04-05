@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/ingredient_check_models.dart';
 import '../models/product_lookup_models.dart';
 
+typedef ResultScreenAction = Future<void> Function(BuildContext context);
+
 class ResultScreen extends StatelessWidget {
   const ResultScreen({
     super.key,
@@ -16,6 +18,8 @@ class ResultScreen extends StatelessWidget {
     this.brandName,
     this.barcode,
     this.coverageStatus,
+    this.fallbackActionLabel,
+    this.onFallbackAction,
   });
 
   factory ResultScreen.forIngredientCheck({
@@ -38,6 +42,8 @@ class ResultScreen extends StatelessWidget {
     Key? key,
     required String barcode,
     required ProductLookupResult result,
+    String? fallbackActionLabel,
+    ResultScreenAction? onFallbackAction,
   }) {
     return ResultScreen(
       key: key,
@@ -53,6 +59,8 @@ class ResultScreen extends StatelessWidget {
           ? result.product?.barcode
           : barcode,
       coverageStatus: result.product?.ingredientCoverageStatus,
+      fallbackActionLabel: fallbackActionLabel,
+      onFallbackAction: onFallbackAction,
     );
   }
 
@@ -66,6 +74,8 @@ class ResultScreen extends StatelessWidget {
   final String? brandName;
   final String? barcode;
   final String? coverageStatus;
+  final String? fallbackActionLabel;
+  final ResultScreenAction? onFallbackAction;
 
   bool get _hasProductDetails =>
       productName != null ||
@@ -155,6 +165,19 @@ class ResultScreen extends StatelessWidget {
     }
   }
 
+  String _statusActionHint() {
+    switch (resultStatus) {
+      case 'contains_nut_ingredient':
+        return 'Avoid this product unless you have separate confirmation it is safe for your allergy profile.';
+      case 'possible_nut_derived_ingredient':
+        return 'Review the flagged ingredients carefully before using this product.';
+      case 'no_nut_ingredient_found':
+        return 'No nut-linked ingredients were flagged in the ingredient list that was checked.';
+      default:
+        return 'Treat this result as incomplete and verify the full ingredient list before using the product.';
+    }
+  }
+
   String _matchSummary() {
     if (_matchCount == 0) {
       return 'No flagged ingredients';
@@ -220,6 +243,56 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
+  Widget _labeledDetail({
+    required BuildContext context,
+    required String label,
+    required String value,
+    IconData? icon,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 18,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _metaChip({
     required BuildContext context,
     required IconData icon,
@@ -249,10 +322,40 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
+  Widget _fallbackActionCard(BuildContext context) {
+    return _sectionCard(
+      context: context,
+      title: 'Need a Better Result?',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'If this barcode did not return a usable ingredient list, you can save ingredients from the product label and reuse them on future scans.',
+            style:
+                Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('result-fallback-action'),
+              onPressed: () async {
+                if (onFallbackAction == null) {
+                  return;
+                }
+                await onFallbackAction!(context);
+              },
+              icon: const Icon(Icons.note_add_rounded),
+              label: Text(fallbackActionLabel!),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _productSummary(BuildContext context) {
     final headline = productName ?? 'Product not identified';
-    final subline = brandName ?? 'Brand not available';
-    final secondaryText = Theme.of(context).colorScheme.onSurfaceVariant;
 
     return _sectionCard(
       context: context,
@@ -260,39 +363,37 @@ class ResultScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            headline,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+          _labeledDetail(
+            context: context,
+            label: 'Product name',
+            value: headline,
+            icon: Icons.inventory_2_rounded,
           ),
-          const SizedBox(height: 6),
-          Text(
-            subline,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: secondaryText,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          if (barcode != null || coverageStatus != null) ...[
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                if (barcode != null)
-                  _detailPill(
-                    context: context,
-                    icon: Icons.qr_code_rounded,
-                    label: barcode!,
-                  ),
-                if (coverageStatus != null)
-                  _detailPill(
-                    context: context,
-                    icon: Icons.fact_check_rounded,
-                    label: _coverageLabel(),
-                  ),
-              ],
+          if (brandName != null) ...[
+            const SizedBox(height: 10),
+            _labeledDetail(
+              context: context,
+              label: 'Brand',
+              value: brandName!,
+              icon: Icons.sell_rounded,
+            ),
+          ],
+          if (barcode != null) ...[
+            const SizedBox(height: 10),
+            _labeledDetail(
+              context: context,
+              label: 'Barcode',
+              value: barcode!,
+              icon: Icons.qr_code_rounded,
+            ),
+          ],
+          if (coverageStatus != null) ...[
+            const SizedBox(height: 10),
+            _labeledDetail(
+              context: context,
+              label: 'Ingredient coverage',
+              value: _coverageLabel(),
+              icon: Icons.fact_check_rounded,
             ),
           ],
         ],
@@ -367,6 +468,14 @@ class ResultScreen extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Flagged ingredient',
+                      style: textTheme.labelLarge?.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                     if (match.normalizedName.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
@@ -424,7 +533,7 @@ class ResultScreen extends StatelessWidget {
         title: Text(title),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         children: [
           Container(
             key: const Key('result-status-banner'),
@@ -485,6 +594,39 @@ class ResultScreen extends StatelessWidget {
                               height: 1.35,
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.18),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'What to do next',
+                                  style: textTheme.labelLarge?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _statusActionHint(),
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white.withOpacity(0.94),
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -512,13 +654,40 @@ class ResultScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
+          _sectionCard(
+            context: context,
+            title: 'Quick Summary',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _labeledDetail(
+                  context: context,
+                  label: 'Assessment',
+                  value: _statusLabel(),
+                  icon: _statusIcon(),
+                ),
+                const SizedBox(height: 10),
+                _labeledDetail(
+                  context: context,
+                  label: 'Matched ingredients',
+                  value: _matchSummary(),
+                  icon: Icons.list_alt_rounded,
+                ),
+              ],
+            ),
+          ),
+          if (fallbackActionLabel != null && onFallbackAction != null) ...[
+            const SizedBox(height: 18),
+            _fallbackActionCard(context),
+          ],
+          const SizedBox(height: 18),
           if (_hasProductDetails) ...[
             _productSummary(context),
             const SizedBox(height: 18),
           ],
           _sectionCard(
             context: context,
-            title: 'Explanation',
+            title: 'Why This Result',
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -575,34 +744,40 @@ class ResultScreen extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 22),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              key: const Key('result-primary-action'),
-              onPressed: () => Navigator.of(context).pop(),
-              icon: Icon(_isLookupResult
-                  ? Icons.qr_code_scanner_rounded
-                  : Icons.refresh_rounded),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              label: Text(_primaryActionLabel()),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              label: const Text('Back'),
-            ),
-          ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: FilledButton.icon(
+                key: const Key('result-primary-action'),
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(_isLookupResult
+                    ? Icons.qr_code_scanner_rounded
+                    : Icons.refresh_rounded),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                label: Text(_primaryActionLabel()),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back_rounded),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                label: const Text('Back'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

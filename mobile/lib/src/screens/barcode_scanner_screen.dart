@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/allergy_profile.dart';
+import '../models/product_lookup_models.dart';
 import '../services/thats_nuts_api_client.dart';
+import 'barcode_enrichment_screen.dart';
 import 'barcode_input_screen.dart';
 import 'result_screen.dart';
 
@@ -85,14 +87,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
       if (!mounted) {
         return;
       }
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => ResultScreen.forProductLookup(
-            barcode: barcode,
-            result: result,
-          ),
-        ),
-      );
+      await _openLookupResult(barcode, result);
       await _restartScanner();
     } on ThatsNutsApiException catch (error) {
       if (!mounted) {
@@ -107,7 +102,8 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
         return;
       }
       setState(() {
-        _errorMessage = 'Something went wrong while looking up the scanned barcode.';
+        _errorMessage =
+            'Something went wrong while looking up the scanned barcode.';
       });
       await _controller.start();
     } finally {
@@ -117,6 +113,33 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
         });
       }
     }
+  }
+
+  Future<void> _openLookupResult(String barcode, ProductLookupResult result) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => ResultScreen.forProductLookup(
+          barcode: barcode,
+          result: result,
+          fallbackActionLabel: result.canAddIngredientsFallback
+              ? 'Add Ingredients for This Barcode'
+              : null,
+          onFallbackAction: result.canAddIngredientsFallback
+              ? (screenContext) => Navigator.of(screenContext).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => BarcodeEnrichmentScreen(
+                        apiClient: widget.apiClient,
+                        allergyProfile: widget.allergyProfile,
+                        barcode: barcode,
+                        initialProductName: result.product?.productName,
+                        initialBrandName: result.product?.brandName,
+                      ),
+                    ),
+                  )
+              : null,
+        ),
+      ),
+    );
   }
 
   String _scannerStatusText(MobileScannerState state) {
@@ -144,8 +167,10 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     BuildContext context,
     MobileScannerException error,
   ) {
-    final isPermissionError = error.errorCode == MobileScannerErrorCode.permissionDenied;
-    final title = isPermissionError ? 'Camera permission needed' : 'Scanner unavailable';
+    final isPermissionError =
+        error.errorCode == MobileScannerErrorCode.permissionDenied;
+    final title =
+        isPermissionError ? 'Camera permission needed' : 'Scanner unavailable';
     final body = isPermissionError
         ? 'Allow camera access in system settings, then return here to scan. You can still enter a barcode manually.'
         : error.errorDetails?.message?.isNotEmpty == true
@@ -216,204 +241,211 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Text(
-              'Point the camera at a UPC or EAN barcode.',
-              style: textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.allergyProfile.hasSelections
-                  ? 'Profile: ${widget.allergyProfile.summary}'
-                  : 'Profile: checking all supported nut-related ingredients.',
-              style: textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'After a successful scan, the app looks up the product and opens the result screen automatically.',
-              style: textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 3 / 4,
-                child: ValueListenableBuilder<MobileScannerState>(
-                  valueListenable: _controller,
-                  builder: (context, state, _) {
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        widget.scannerPreview ??
-                            MobileScanner(
-                              controller: _controller,
-                              errorBuilder: _buildScannerError,
-                              onDetect: (capture) {
-                                if (_isHandlingScan) {
-                                  return;
-                                }
-
-                                for (final barcode in capture.barcodes) {
-                                  final rawValue = barcode.rawValue?.trim();
-                                  if (rawValue != null && rawValue.isNotEmpty) {
-                                    _handleBarcode(rawValue);
+              Text(
+                'Point the camera at a UPC or EAN barcode.',
+                style: textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.allergyProfile.hasSelections
+                    ? 'Profile: ${widget.allergyProfile.summary}'
+                    : 'Profile: checking all supported nut-related ingredients.',
+                style: textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'After a successful scan, the app looks up the product and opens the result screen automatically.',
+                style: textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: AspectRatio(
+                  aspectRatio: 3 / 4,
+                  child: ValueListenableBuilder<MobileScannerState>(
+                    valueListenable: _controller,
+                    builder: (context, state, _) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          widget.scannerPreview ??
+                              MobileScanner(
+                                controller: _controller,
+                                errorBuilder: _buildScannerError,
+                                onDetect: (capture) {
+                                  if (_isHandlingScan) {
                                     return;
                                   }
-                                }
-                              },
-                            ),
-                        IgnorePointer(
-                          child: Center(
-                            child: Container(
-                              width: 240,
-                              height: 160,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.9),
-                                  width: 3,
-                                ),
-                                color: Colors.black.withOpacity(0.12),
+
+                                  for (final barcode in capture.barcodes) {
+                                    final rawValue = barcode.rawValue?.trim();
+                                    if (rawValue != null &&
+                                        rawValue.isNotEmpty) {
+                                      _handleBarcode(rawValue);
+                                      return;
+                                    }
+                                  }
+                                },
                               ),
-                              alignment: Alignment.bottomCenter,
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    _scannerStatusText(state),
-                                    textAlign: TextAlign.center,
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                          IgnorePointer(
+                            child: Center(
+                              child: Container(
+                                width: 240,
+                                height: 160,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.9),
+                                    width: 3,
                                   ),
-                                  if (_lastScannedBarcode != null && !_isHandlingScan) ...[
-                                    const SizedBox(height: 8),
+                                  color: Colors.black.withOpacity(0.12),
+                                ),
+                                alignment: Alignment.bottomCenter,
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
                                     Text(
-                                      'Last scan: $_lastScannedBarcode',
+                                      _scannerStatusText(state),
                                       textAlign: TextAlign.center,
-                                      style: textTheme.bodySmall?.copyWith(
-                                        color: Colors.white.withOpacity(0.92),
+                                      style: textTheme.bodyMedium?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
+                                    if (_lastScannedBarcode != null &&
+                                        !_isHandlingScan) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Last scan: $_lastScannedBarcode',
+                                        textAlign: TextAlign.center,
+                                        style: textTheme.bodySmall?.copyWith(
+                                          color: Colors.white.withOpacity(0.92),
+                                        ),
+                                      ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ValueListenableBuilder<MobileScannerState>(
-              valueListenable: _controller,
-              builder: (context, state, _) {
-                final torchUnavailable = state.torchState == TorchState.unavailable;
-                final torchOn = state.torchState == TorchState.on;
-
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: (_isHandlingScan || torchUnavailable)
-                          ? null
-                          : () => _controller.toggleTorch(),
-                      icon: Icon(torchOn ? Icons.flash_on_rounded : Icons.flash_off_rounded),
-                      label: Text(torchOn ? 'Torch On' : 'Torch Off'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _isHandlingScan ? null : _restartScanner,
-                      icon: const Icon(Icons.center_focus_strong_rounded),
-                      label: const Text('Retry Scanner'),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'The camera is limited to UPC and EAN formats to match product lookup. If scanning is unavailable or permission is denied, use manual barcode entry instead.',
-              style: textTheme.bodyMedium,
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 12),
-              Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Lookup failed',
-                        style: textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _errorMessage!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          FilledButton(
-                            onPressed: _restartScanner,
-                            child: const Text('Try Scanning Again'),
-                          ),
-                          OutlinedButton(
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (context) => BarcodeInputScreen(
-                                    apiClient: widget.apiClient,
-                                    allergyProfile: widget.allergyProfile,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: const Text('Enter Barcode Manually'),
-                          ),
                         ],
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
               ),
-            ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (context) => BarcodeInputScreen(
-                        apiClient: widget.apiClient,
-                        allergyProfile: widget.allergyProfile,
+              const SizedBox(height: 12),
+              ValueListenableBuilder<MobileScannerState>(
+                valueListenable: _controller,
+                builder: (context, state, _) {
+                  final torchUnavailable =
+                      state.torchState == TorchState.unavailable;
+                  final torchOn = state.torchState == TorchState.on;
+
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: (_isHandlingScan || torchUnavailable)
+                            ? null
+                            : () => _controller.toggleTorch(),
+                        icon: Icon(torchOn
+                            ? Icons.flash_on_rounded
+                            : Icons.flash_off_rounded),
+                        label: Text(torchOn ? 'Torch On' : 'Torch Off'),
                       ),
-                    ),
+                      OutlinedButton.icon(
+                        onPressed: _isHandlingScan ? null : _restartScanner,
+                        icon: const Icon(Icons.center_focus_strong_rounded),
+                        label: const Text('Retry Scanner'),
+                      ),
+                    ],
                   );
                 },
-                child: const Text('Enter Barcode Manually'),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Supported formats: UPC-A, UPC-E, EAN-8, EAN-13.',
-              style: textTheme.bodySmall,
-            ),
+              const SizedBox(height: 12),
+              Text(
+                'The camera is limited to UPC and EAN formats to match product lookup. If scanning is unavailable or permission is denied, use manual barcode entry instead.',
+                style: textTheme.bodyMedium,
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 12),
+                Card(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Lookup failed',
+                          style: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color:
+                                Theme.of(context).colorScheme.onErrorContainer,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onErrorContainer,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            FilledButton(
+                              onPressed: _restartScanner,
+                              child: const Text('Try Scanning Again'),
+                            ),
+                            OutlinedButton(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (context) => BarcodeInputScreen(
+                                      apiClient: widget.apiClient,
+                                      allergyProfile: widget.allergyProfile,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: const Text('Enter Barcode Manually'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => BarcodeInputScreen(
+                          apiClient: widget.apiClient,
+                          allergyProfile: widget.allergyProfile,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Enter Barcode Manually'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Supported formats: UPC-A, UPC-E, EAN-8, EAN-13.',
+                style: textTheme.bodySmall,
+              ),
             ],
           ),
         ],

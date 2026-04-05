@@ -38,9 +38,17 @@ cd mobile
 flutter pub get
 ```
 
-The app now uses `mobile_scanner` for camera-based UPC/EAN scanning.
+The app now uses `mobile_scanner` for camera-based UPC/EAN scanning and `image_picker` for ingredient-photo capture.
 The mobile client also supports a simple local allergy profile that is sent with ingredient and barcode requests when you enable any profile toggles.
 That profile is persisted locally on device and restored when the app starts again.
+Manual ingredient capture currently supports:
+
+- typing or pasting ingredient text
+- iPhone built-in text scan from the text field
+- taking a photo
+- choosing a photo from the library
+
+Photo capture is wired on-device, but OCR/image upload for ingredient extraction is not connected yet. For now, use the text field as the source of truth after taking or choosing a photo.
 
 ## Run the app
 
@@ -57,6 +65,40 @@ Examples:
 - iOS simulator: `http://127.0.0.1:8002`
 - physical device: `http://YOUR_LAN_IP:8002`
 
+## iPhone demo script
+
+Use this for a short, reliable operator demo on iPhone.
+
+Prerequisites:
+
+- backend running via `./scripts/run_backend.sh`
+- demo barcodes loaded with `backend/.venv/bin/python scripts/load_demo_barcodes.py`
+- iPhone and backend host on the same network
+- app started with `flutter run --dart-define=API_BASE_URL=http://YOUR_LAN_IP:8002`
+
+Backend URL check:
+
+1. Open `http://YOUR_LAN_IP:8002/health` in Safari on the iPhone.
+2. Confirm the page returns a healthy response before opening the app demo.
+
+Demo flow:
+
+1. Open the app and tap `Edit Profile`.
+2. Turn on one simple profile option such as `Almond`, then save.
+3. Tap `Manual Ingredient Check`.
+4. In the text field, either paste ingredients or on iPhone tap into the field and use built-in text scan from the keyboard/text-entry flow to capture the label text.
+5. Use a sample ingredient list such as `Water, Glycerin, Prunus Amygdalus Dulcis Oil` and tap `Check Ingredients`.
+6. Point out the status, explanation, matched ingredient, and bottom action buttons on the result screen.
+7. Go back, tap `Scan Barcode`, and scan demo barcode `9900000000001` for a positive match.
+8. Optionally scan `9900000000003` to show a clear result or `9900000000004` to show `cannot_verify`.
+9. Open `Recent History` and confirm the manual ingredient check and barcode lookup both appear.
+
+If a barcode is not found:
+
+- Explain that the current app still records the lookup in recent history.
+- Use `Enter Barcode Manually` if camera scanning is inconvenient.
+- Continue the demo with one of the seeded demo barcodes: `9900000000001`, `9900000000003`, or `9900000000004`.
+
 ## Current app flow
 
 1. Open home screen
@@ -65,6 +107,13 @@ Examples:
 4. Paste ingredients
 5. Submit to backend
 6. View result screen
+
+Manual ingredient capture options:
+
+1. Open manual ingredient input
+2. Either type/paste ingredients, use iPhone text scan in the text field, take a photo, or choose a photo
+3. If you add a photo, keep entering ingredients in the text field for now because OCR is not connected yet
+4. Submit to backend
 
 History flow:
 
@@ -104,13 +153,15 @@ After generating platform folders, re-apply the files from this repository if `f
 
 ### iOS
 
-`mobile_scanner` requires camera access, so add `NSCameraUsageDescription` to `ios/Runner/Info.plist`.
+`mobile_scanner` and `image_picker` require camera access, and library selection needs photo-library access. Add these keys to `ios/Runner/Info.plist`.
 
 Example:
 
 ```xml
 <key>NSCameraUsageDescription</key>
 <string>This app needs camera access to scan product barcodes.</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>This app needs photo library access so you can choose ingredient label photos.</string>
 ```
 
 ### Android

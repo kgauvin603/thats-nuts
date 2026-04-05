@@ -21,6 +21,7 @@ class ScanHistoryItem {
     required this.barcode,
     required this.productName,
     required this.brandName,
+    required this.submittedIngredientText,
     required this.assessmentStatus,
     required this.explanation,
     required this.matchedIngredientSummary,
@@ -31,6 +32,7 @@ class ScanHistoryItem {
   final String? barcode;
   final String? productName;
   final String? brandName;
+  final String? submittedIngredientText;
   final String assessmentStatus;
   final String? explanation;
   final String? matchedIngredientSummary;
@@ -42,10 +44,12 @@ class ScanHistoryItem {
       barcode: json['barcode'] as String?,
       productName: json['product_name'] as String?,
       brandName: json['brand_name'] as String?,
+      submittedIngredientText: json['submitted_ingredient_text'] as String?,
       assessmentStatus: json['assessment_status'] as String? ?? 'cannot_verify',
       explanation: json['explanation'] as String?,
       matchedIngredientSummary: json['matched_ingredient_summary'] as String?,
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }

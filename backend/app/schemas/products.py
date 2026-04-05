@@ -6,10 +6,20 @@ from pydantic import BaseModel, Field
 from app.schemas.ingredients import AllergyProfile, IngredientCheckStatus, MatchedIngredient
 
 IngredientCoverageStatus = Literal["complete", "partial", "missing", "unknown"]
+ProductEnrichmentSource = Literal["manual_entry", "text_scan"]
 
 
 class ProductLookupRequest(BaseModel):
     barcode: str = Field(..., min_length=3)
+    allergy_profile: Optional[AllergyProfile] = None
+
+
+class ProductEnrichmentRequest(BaseModel):
+    barcode: str = Field(..., min_length=3)
+    ingredient_text: str = Field(..., min_length=1)
+    product_name: Optional[str] = None
+    brand_name: Optional[str] = None
+    source: Optional[ProductEnrichmentSource] = None
     allergy_profile: Optional[AllergyProfile] = None
 
 

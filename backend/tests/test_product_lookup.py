@@ -2,11 +2,11 @@ import httpx
 import pytest
 from sqlmodel import Session, select
 
-from app.api.routes.product_lookup import lookup_product
+from app.api.routes.product_lookup import enrich_product, lookup_product
 from app.db.session import get_engine
 from app.models import AllergyProfileRecord, Product, ScanHistory
 from app.schemas.ingredients import AllergyProfile
-from app.schemas.products import ProductLookupRequest
+from app.schemas.products import ProductEnrichmentRequest, ProductLookupRequest
 from app.services.product_lookup import (
     MockApiProductLookupProvider,
     OpenFoodFactsProductLookupProvider,
@@ -526,3 +526,124 @@ def test_product_lookup_service_handles_provider_failure_cleanly():
         "Product lookup could not be completed because the configured provider did not return "
         "reliable product data for this barcode. Try again in a moment or enter ingredients manually."
     )
+
+
+def test_enrich_product_route_persists_manual_ingredient_data_and_assessment(temp_database):
+    assert prepare_persistence() is True
+
+    response = enrich_product(
+        ProductEnrichmentRequest(
+            barcode="1112223334445",
+            product_name="Manual Rescue Lotion",
+            brand_name="Operator Brand",
+            ingredient_text="Water, Glycerin, Prunus Amygdalus Dulcis Oil",
+            source="text_scan",
+        )
+    )
+
+    with Session(get_engine()) as session:
+        product = session.exec(select(Product).where(Product.barcode == "1112223334445")).first()
+        scan_history = session.exec(select(ScanHistory).where(ScanHistory.product_id == product.id)).all()
+
+    assert response.found is True
+    assert response.product is not None
+    assert response.product.barcode == "1112223334445"
+    assert response.product.product_name == "Manual Rescue Lotion"
+    assert response.product.brand_name == "Operator Brand"
+    assert response.product.ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
+    assert response.product.ingredient_coverage_status == "complete"
+    assert response.product.source == "text_scan"
+    assert response.ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
+    assert response.assessment_result == "contains_nut_ingredient"
+    assert len(response.matched_ingredients) == 1
+    assert response.matched_ingredients[0].nut_source == "almond"
+    assert response.explanation == (
+        "Product data was saved from a locally submitted ingredient list for this barcode. "
+        "Matched 1 ingredient linked to nut allergy risk."
+    )
+    assert product is not None
+    assert product.source == "text_scan"
+    assert product.ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
+    assert len(scan_history) == 1
+    assert scan_history[0].result_status == "contains_nut_ingredient"
+    assert scan_history[0].submitted_barcode == "1112223334445"
+    assert scan_history[0].submitted_ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
+
+
+def test_future_lookup_returns_saved_enriched_barcode_data(temp_database):
+    assert prepare_persistence() is True
+
+    service = ProductLookupService(StubProductLookupProvider(products={}))
+
+    enrichment_response = service.enrich_barcode_with_ingredients(
+        "5556667778881",
+        "Water, Glycerin",
+        product_name="Saved Product",
+        brand_name="Saved Brand",
+        source="manual_entry",
+    )
+    lookup_response = service.lookup_by_barcode("5556667778881")
+
+    assert enrichment_response.found is True
+    assert lookup_response.found is True
+    assert lookup_response.product is not None
+    assert lookup_response.product.barcode == "5556667778881"
+    assert lookup_response.product.product_name == "Saved Product"
+    assert lookup_response.product.brand_name == "Saved Brand"
+    assert lookup_response.product.source == "manual_entry"
+    assert lookup_response.ingredient_text == "Water, Glycerin"
+    assert lookup_response.assessment_result == "no_nut_ingredient_found"
+    assert lookup_response.explanation == (
+        "Product data was returned from the local barcode enrichment cache. "
+        "No nut-derived ingredients were matched in the provided ingredient list."
+    )
+
+
+def test_manual_enrichment_updates_cached_product_with_missing_ingredients(temp_database):
+    assert prepare_persistence() is True
+
+    service = ProductLookupService(
+        StubProductLookupProvider(
+            products={
+                "654": {
+                    "barcode": "654",
+                    "brand_name": "Sparse Brand",
+                    "product_name": "Sparse Product",
+                    "image_url": None,
+                    "ingredient_text": None,
+                    "ingredient_coverage_status": "missing",
+                    "source": "stub",
+                }
+            }
+        )
+    )
+
+    initial_lookup = service.lookup_by_barcode("654")
+    enriched_lookup = service.enrich_barcode_with_ingredients(
+        "654",
+        "Water, Glycerin, Prunus Amygdalus Dulcis Oil",
+        source="manual_entry",
+    )
+    future_lookup = service.lookup_by_barcode("654")
+
+    with Session(get_engine()) as session:
+        product = session.exec(select(Product).where(Product.barcode == "654")).first()
+
+    assert initial_lookup.found is True
+    assert initial_lookup.assessment_result == "cannot_verify"
+    assert enriched_lookup.found is True
+    assert enriched_lookup.assessment_result == "contains_nut_ingredient"
+    assert len(enriched_lookup.matched_ingredients) == 1
+    assert future_lookup.found is True
+    assert future_lookup.product is not None
+    assert future_lookup.product.product_name == "Sparse Product"
+    assert future_lookup.product.brand_name == "Sparse Brand"
+    assert future_lookup.product.ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
+    assert future_lookup.product.ingredient_coverage_status == "complete"
+    assert future_lookup.product.source == "manual_entry"
+    assert future_lookup.assessment_result == "contains_nut_ingredient"
+    assert product is not None
+    assert product.product_name == "Sparse Product"
+    assert product.brand_name == "Sparse Brand"
+    assert product.ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
+    assert product.ingredient_coverage_status == "complete"

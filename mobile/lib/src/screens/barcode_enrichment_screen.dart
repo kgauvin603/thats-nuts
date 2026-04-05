@@ -6,43 +6,59 @@ import '../services/thats_nuts_api_client.dart';
 import '../widgets/ingredient_capture_options.dart';
 import 'result_screen.dart';
 
-class ManualIngredientInputScreen extends StatefulWidget {
-  const ManualIngredientInputScreen({
+class BarcodeEnrichmentScreen extends StatefulWidget {
+  const BarcodeEnrichmentScreen({
     super.key,
     required this.apiClient,
     required this.allergyProfile,
+    required this.barcode,
+    this.initialProductName,
+    this.initialBrandName,
     this.imagePicker = const _DefaultIngredientImagePicker(),
   });
 
-  static const routeName = '/manual-input';
-
   final ThatsNutsApiClient apiClient;
   final AllergyProfile allergyProfile;
+  final String barcode;
+  final String? initialProductName;
+  final String? initialBrandName;
   final IngredientImagePicker imagePicker;
 
   @override
-  State<ManualIngredientInputScreen> createState() =>
-      _ManualIngredientInputScreenState();
+  State<BarcodeEnrichmentScreen> createState() =>
+      _BarcodeEnrichmentScreenState();
 }
 
-class _ManualIngredientInputScreenState
-    extends State<ManualIngredientInputScreen> {
-  final _controller = TextEditingController();
+class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
+  late final TextEditingController _productNameController;
+  late final TextEditingController _brandNameController;
+  final TextEditingController _ingredientController = TextEditingController();
   PickedIngredientImage? _attachedImage;
   bool _isSubmitting = false;
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _productNameController =
+        TextEditingController(text: widget.initialProductName ?? '');
+    _brandNameController =
+        TextEditingController(text: widget.initialBrandName ?? '');
+  }
+
+  @override
   void dispose() {
-    _controller.dispose();
+    _productNameController.dispose();
+    _brandNameController.dispose();
+    _ingredientController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    final ingredientText = _controller.text.trim();
+    final ingredientText = _ingredientController.text.trim();
     if (ingredientText.isEmpty) {
       setState(() {
-        _errorMessage = 'Enter ingredients before submitting.';
+        _errorMessage = 'Enter ingredients before saving this barcode.';
       });
       return;
     }
@@ -53,17 +69,20 @@ class _ManualIngredientInputScreenState
     });
 
     try {
-      final result = await widget.apiClient.checkIngredients(
-        ingredientText,
+      final result = await widget.apiClient.enrichProduct(
+        widget.barcode,
+        ingredientText: ingredientText,
+        productName: _productNameController.text,
+        brandName: _brandNameController.text,
         allergyProfile: widget.allergyProfile,
       );
       if (!mounted) {
         return;
       }
-      await Navigator.of(context).push(
+      await Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (context) => ResultScreen.forIngredientCheck(
-            ingredientText: ingredientText,
+          builder: (context) => ResultScreen.forProductLookup(
+            barcode: widget.barcode,
             result: result,
           ),
         ),
@@ -74,7 +93,8 @@ class _ManualIngredientInputScreenState
       });
     } catch (_) {
       setState(() {
-        _errorMessage = 'Something went wrong while contacting the backend.';
+        _errorMessage =
+            'Something went wrong while saving ingredients for this barcode.';
       });
     } finally {
       if (mounted) {
@@ -106,9 +126,11 @@ class _ManualIngredientInputScreenState
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manual Ingredient Check'),
+        title: const Text('Add Ingredients for Barcode'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -117,15 +139,15 @@ class _ManualIngredientInputScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Paste the ingredient list from a product label.',
-                style: Theme.of(context).textTheme.titleMedium,
+                'Save ingredients for this barcode so future scans can use the label text you captured.',
+                style: textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               Text(
                 widget.allergyProfile.hasSelections
                     ? 'Profile: ${widget.allergyProfile.summary}'
                     : 'Profile: checking all supported nut-related ingredients.',
-                style: Theme.of(context).textTheme.bodySmall,
+                style: textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
               IngredientCaptureOptions(
@@ -141,27 +163,47 @@ class _ManualIngredientInputScreenState
                       },
               ),
               const SizedBox(height: 16),
+              InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Barcode',
+                  border: OutlineInputBorder(),
+                ),
+                child: SelectableText(
+                  widget.barcode,
+                  style: textTheme.bodyLarge,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _productNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Product Name (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _brandNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Brand (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
               SizedBox(
                 height: 280,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Ingredient Text',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
                     Expanded(
                       child: TextField(
-                        controller: _controller,
+                        controller: _ingredientController,
                         expands: true,
                         maxLines: null,
                         minLines: null,
                         textAlignVertical: TextAlignVertical.top,
                         decoration: const InputDecoration(
-                          labelText: 'Ingredients',
+                          labelText: 'Ingredient Text',
                           alignLabelWithHint: true,
                           hintText:
                               'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
@@ -172,10 +214,9 @@ class _ManualIngredientInputScreenState
                     const SizedBox(height: 8),
                     Text(
                       'Tip: On iPhone, tap the text field and use text scan to capture ingredients from the label.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -194,8 +235,11 @@ class _ManualIngredientInputScreenState
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
-                  child:
-                      Text(_isSubmitting ? 'Checking...' : 'Check Ingredients'),
+                  child: Text(
+                    _isSubmitting
+                        ? 'Saving...'
+                        : 'Save Ingredients for This Barcode',
+                  ),
                 ),
               ),
             ],

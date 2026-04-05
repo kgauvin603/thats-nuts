@@ -1,12 +1,12 @@
 import logging
 from typing import Dict, List, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import inspect, or_, text
 
 from sqlmodel import Session, select
 
 from app.core.config import get_settings
-from app.db import initialize_database, session_scope
+from app.db import get_engine, initialize_database, session_scope
 from app.models import (
     AllergyProfileRecord,
     Ingredient,
@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 def prepare_persistence() -> bool:
     if not initialize_database():
+        return False
+
+    if not ensure_scan_history_schema():
         return False
 
     settings = get_settings()
@@ -180,12 +183,16 @@ def persist_scan_result(
     result: dict,
     allergy_profile: Optional[AllergyProfile] = None,
     product_id: Optional[int] = None,
+    scan_type: str = "manual_ingredient_check",
+    submitted_barcode: Optional[str] = None,
 ) -> None:
     try:
         with session_scope() as session:
             allergy_profile_id = create_allergy_profile(session, allergy_profile)
             scan_history = ScanHistory(
+                scan_type=scan_type,
                 product_id=product_id,
+                submitted_barcode=submitted_barcode,
                 allergy_profile_id=allergy_profile_id,
                 submitted_ingredient_text=ingredient_text,
                 result_status=result["status"],
@@ -236,16 +243,17 @@ def list_recent_scan_history(limit: int = 20) -> List[ScanHistoryEntry]:
 
             return [
                 ScanHistoryEntry(
-                    scan_type="barcode_lookup" if scan.product_id is not None else "manual_ingredient_check",
+                    scan_type=scan.scan_type,
                     barcode=products_by_id.get(scan.product_id).barcode
                     if scan.product_id is not None and products_by_id.get(scan.product_id)
-                    else None,
+                    else scan.submitted_barcode,
                     product_name=products_by_id.get(scan.product_id).product_name
                     if scan.product_id is not None and products_by_id.get(scan.product_id)
                     else None,
                     brand_name=products_by_id.get(scan.product_id).brand_name
                     if scan.product_id is not None and products_by_id.get(scan.product_id)
                     else None,
+                    submitted_ingredient_text=scan.submitted_ingredient_text or None,
                     assessment_status=scan.result_status,
                     explanation=scan.explanation,
                     matched_ingredient_summary=build_matched_ingredient_summary(scan.matched_ingredients),
@@ -256,6 +264,62 @@ def list_recent_scan_history(limit: int = 20) -> List[ScanHistoryEntry]:
     except Exception:
         logger.exception("Recent scan history lookup failed.")
         return []
+
+
+def ensure_scan_history_schema() -> bool:
+    try:
+        engine = get_engine()
+        inspector = inspect(engine)
+        if "scan_history" not in inspector.get_table_names():
+            return True
+
+        columns = {column["name"] for column in inspector.get_columns("scan_history")}
+        statements = []
+        if "scan_type" not in columns:
+            statements.append(
+                "ALTER TABLE scan_history ADD COLUMN scan_type TEXT NOT NULL DEFAULT 'manual_ingredient_check'"
+            )
+        if "submitted_barcode" not in columns:
+            statements.append("ALTER TABLE scan_history ADD COLUMN submitted_barcode TEXT")
+
+        if statements:
+            with engine.begin() as connection:
+                for statement in statements:
+                    connection.execute(text(statement))
+                connection.execute(
+                    text(
+                        """
+                        UPDATE scan_history
+                        SET scan_type = CASE
+                            WHEN product_id IS NOT NULL THEN 'barcode_lookup'
+                            ELSE 'manual_ingredient_check'
+                        END
+                        WHERE scan_type IS NULL
+                           OR scan_type = ''
+                           OR scan_type = 'manual_ingredient_check'
+                        """
+                    )
+                )
+            return True
+
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE scan_history
+                    SET scan_type = CASE
+                        WHEN product_id IS NOT NULL THEN 'barcode_lookup'
+                        ELSE 'manual_ingredient_check'
+                    END
+                    WHERE product_id IS NOT NULL
+                      AND scan_type <> 'barcode_lookup'
+                    """
+                )
+            )
+        return True
+    except Exception:
+        logger.exception("Scan history schema update failed. Continuing without database-backed persistence.")
+        return False
 
 
 def build_matched_ingredient_summary(matched_ingredients: List[dict]) -> Optional[str]:
