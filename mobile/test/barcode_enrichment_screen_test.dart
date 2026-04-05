@@ -143,7 +143,7 @@ void main() {
     expect(apiClient.capturedProductName, 'Saved Product');
     expect(apiClient.capturedBrandName, 'Saved Brand');
     expect(apiClient.capturedProfile?.almond, isTrue);
-    expect(find.text('Contains nut ingredient'), findsNWidgets(2));
+    expect(find.text('Contains nut ingredient'), findsOneWidget);
     expect(find.text('Scan Again'), findsOneWidget);
   });
 }

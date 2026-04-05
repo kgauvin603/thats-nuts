@@ -92,12 +92,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   String _scanTypeLabel(String scanType) {
-    switch (scanType) {
-      case 'barcode_lookup':
-        return 'Barcode lookup';
-      default:
-        return 'Manual check';
+    return scanType == 'barcode_lookup' ? 'Barcode lookup' : 'Manual check';
+  }
+
+  bool _isManualEnrichment(ScanHistoryItem item) {
+    return item.scanType == 'barcode_lookup' &&
+        (item.productSource == 'manual_entry' ||
+            item.productSource == 'text_scan');
+  }
+
+  String _sourceLabel(ScanHistoryItem item) {
+    if (_isManualEnrichment(item)) {
+      return 'Manual enrichment';
     }
+    return _scanTypeLabel(item.scanType);
   }
 
   String _formatCreatedAt(DateTime createdAt) {
@@ -112,6 +120,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _entryTitle(ScanHistoryItem item) {
     if (item.productName != null && item.productName!.trim().isNotEmpty) {
       return item.productName!;
+    }
+    if (_isManualEnrichment(item)) {
+      return 'Barcode enriched with manual ingredients';
     }
     if (item.scanType == 'barcode_lookup') {
       return 'Barcode lookup';
@@ -188,7 +199,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           runSpacing: 8,
                           children: [
                             Chip(
-                              label: Text(_scanTypeLabel(item.scanType)),
+                              label: Text(_sourceLabel(item)),
                               visualDensity: VisualDensity.compact,
                             ),
                             Chip(
@@ -232,6 +243,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         const SizedBox(height: 10),
                         if (item.barcode != null)
                           Text('Barcode: ${item.barcode}'),
+                        if (_isManualEnrichment(item)) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Saved from manually captured ingredients for this barcode.',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                          ),
+                        ],
                         if (item.submittedIngredientText != null &&
                             item.submittedIngredientText!
                                 .trim()

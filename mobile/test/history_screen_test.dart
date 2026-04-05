@@ -33,6 +33,7 @@ void main() {
             barcode: '012345678905',
             productName: 'Sample Lotion',
             brandName: 'Test Brand',
+            productSource: 'text_scan',
             submittedIngredientText: 'Water, sweet almond oil, glycerin',
             assessmentStatus: 'contains_nut_ingredient',
             explanation: 'Matched sweet almond oil.',
@@ -44,6 +45,7 @@ void main() {
             barcode: null,
             productName: null,
             brandName: null,
+            productSource: null,
             submittedIngredientText:
                 'Water, Glycerin, Prunus Amygdalus Dulcis Oil',
             assessmentStatus: 'contains_nut_ingredient',
@@ -56,6 +58,7 @@ void main() {
             barcode: '9999999999999',
             productName: null,
             brandName: null,
+            productSource: null,
             submittedIngredientText: null,
             assessmentStatus: 'cannot_verify',
             explanation: 'No product record was found.',
@@ -78,6 +81,11 @@ void main() {
     expect(find.text('Recent History'), findsOneWidget);
     expect(find.text('Sample Lotion'), findsOneWidget);
     expect(find.text('Barcode: 012345678905'), findsOneWidget);
+    expect(find.text('Manual enrichment'), findsOneWidget);
+    expect(
+      find.text('Saved from manually captured ingredients for this barcode.'),
+      findsOneWidget,
+    );
     expect(find.text('Nut ingredient found'), findsNWidgets(2));
     expect(find.text('Matched sweet almond oil.'), findsOneWidget);
     expect(find.text('Matched: sweet almond oil'), findsOneWidget);
@@ -90,7 +98,7 @@ void main() {
       scrollable: find.byType(Scrollable),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Barcode lookup'), findsAtLeastNWidgets(2));
+    expect(find.text('Barcode lookup'), findsNWidgets(2));
     expect(find.text('Barcode: 9999999999999'), findsOneWidget);
   });
 

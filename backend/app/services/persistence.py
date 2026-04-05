@@ -253,6 +253,9 @@ def list_recent_scan_history(limit: int = 20) -> List[ScanHistoryEntry]:
                     brand_name=products_by_id.get(scan.product_id).brand_name
                     if scan.product_id is not None and products_by_id.get(scan.product_id)
                     else None,
+                    product_source=products_by_id.get(scan.product_id).source
+                    if scan.product_id is not None and products_by_id.get(scan.product_id)
+                    else None,
                     submitted_ingredient_text=scan.submitted_ingredient_text or None,
                     assessment_status=scan.result_status,
                     explanation=scan.explanation,

@@ -17,6 +17,7 @@ class ResultScreen extends StatelessWidget {
     this.productName,
     this.brandName,
     this.barcode,
+    this.productSource,
     this.coverageStatus,
     this.fallbackActionLabel,
     this.onFallbackAction,
@@ -58,6 +59,7 @@ class ResultScreen extends StatelessWidget {
       barcode: result.product?.barcode.isNotEmpty == true
           ? result.product?.barcode
           : barcode,
+      productSource: result.product?.source,
       coverageStatus: result.product?.ingredientCoverageStatus,
       fallbackActionLabel: fallbackActionLabel,
       onFallbackAction: onFallbackAction,
@@ -73,6 +75,7 @@ class ResultScreen extends StatelessWidget {
   final String? productName;
   final String? brandName;
   final String? barcode;
+  final String? productSource;
   final String? coverageStatus;
   final String? fallbackActionLabel;
   final ResultScreenAction? onFallbackAction;
@@ -84,6 +87,10 @@ class ResultScreen extends StatelessWidget {
       coverageStatus != null;
 
   bool get _isLookupResult => title == 'Lookup Result';
+
+  bool get _isManualEnrichment =>
+      _isLookupResult &&
+      (productSource == 'manual_entry' || productSource == 'text_scan');
 
   int get _matchCount => matchedIngredients.length;
 
@@ -205,6 +212,31 @@ class ResultScreen extends StatelessWidget {
 
   String _primaryActionLabel() {
     return _isLookupResult ? 'Scan Again' : 'Check Another Ingredient List';
+  }
+
+  Widget _manualEnrichmentCard(BuildContext context) {
+    return _sectionCard(
+      context: context,
+      title: 'Manual Enrichment',
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.bookmark_added_rounded,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'This barcode was previously completed using manually captured ingredients.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    height: 1.4,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _sectionCard({
@@ -637,6 +669,12 @@ class ResultScreen extends StatelessWidget {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
+                    if (_isManualEnrichment)
+                      _metaChip(
+                        context: context,
+                        icon: Icons.bookmark_added_rounded,
+                        label: 'Manual Enrichment',
+                      ),
                     _metaChip(
                       context: context,
                       icon: Icons.list_alt_rounded,
@@ -653,6 +691,10 @@ class ResultScreen extends StatelessWidget {
               ],
             ),
           ),
+          if (_isManualEnrichment) ...[
+            const SizedBox(height: 18),
+            _manualEnrichmentCard(context),
+          ],
           const SizedBox(height: 18),
           _sectionCard(
             context: context,

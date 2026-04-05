@@ -162,4 +162,40 @@ void main() {
 
     expect(tapped, isTrue);
   });
+
+  testWidgets('shows manual enrichment label for enriched barcode results',
+      (WidgetTester tester) async {
+    const result = ProductLookupResult(
+      found: true,
+      product: LookupProduct(
+        barcode: '012345678905',
+        brandName: 'Test Brand',
+        productName: 'Sample Lotion',
+        imageUrl: null,
+        ingredientCoverageStatus: 'complete',
+        source: 'text_scan',
+      ),
+      ingredientText: 'water, sweet almond oil, glycerin',
+      assessmentResult: 'contains_nut_ingredient',
+      explanation: 'Matched sweet almond oil.',
+      matchedIngredients: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResultScreen.forProductLookup(
+          barcode: '012345678905',
+          result: result,
+        ),
+      ),
+    );
+
+    expect(find.text('Manual Enrichment'), findsAtLeastNWidgets(1));
+    expect(
+      find.text(
+        'This barcode was previously completed using manually captured ingredients.',
+      ),
+      findsOneWidget,
+    );
+  });
 }

@@ -1,8 +1,8 @@
 from app.api.routes.check_ingredients import check_ingredients
-from app.api.routes.product_lookup import lookup_product
+from app.api.routes.product_lookup import enrich_product, lookup_product
 from app.api.routes.scan_history import recent_scan_history
 from app.schemas.ingredients import IngredientCheckRequest
-from app.schemas.products import ProductLookupRequest
+from app.schemas.products import ProductEnrichmentRequest, ProductLookupRequest
 from app.services.persistence import prepare_persistence
 
 
@@ -27,6 +27,7 @@ def test_recent_scan_history_returns_manual_and_barcode_checks(temp_database):
     assert newest_item.scan_type == "barcode_lookup"
     assert newest_item.product_name == "Sample Almond Body Oil"
     assert newest_item.brand_name == "Thats Nuts Labs"
+    assert newest_item.product_source == "stub"
     assert newest_item.assessment_status == "contains_nut_ingredient"
     assert newest_item.matched_ingredient_summary == "Prunus Amygdalus Dulcis Oil"
     assert newest_item.created_at is not None
@@ -36,6 +37,7 @@ def test_recent_scan_history_returns_manual_and_barcode_checks(temp_database):
     assert older_item.barcode is None
     assert older_item.product_name is None
     assert older_item.brand_name is None
+    assert older_item.product_source is None
     assert older_item.submitted_ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
     assert older_item.assessment_status == "contains_nut_ingredient"
     assert older_item.matched_ingredient_summary == "Prunus Amygdalus Dulcis Oil"
@@ -76,9 +78,35 @@ def test_recent_scan_history_includes_unsuccessful_barcode_lookups(temp_database
     assert item.barcode == "9999999999999"
     assert item.product_name is None
     assert item.brand_name is None
+    assert item.product_source is None
     assert item.submitted_ingredient_text is None
     assert item.assessment_status == "cannot_verify"
     assert item.explanation == (
         "No product record was found for this barcode in the local cache or from the configured "
         "lookup provider."
     )
+
+
+def test_recent_scan_history_marks_manual_barcode_enrichment(temp_database):
+    assert prepare_persistence() is True
+
+    enrich_product(
+        ProductEnrichmentRequest(
+            barcode="5555555555555",
+            product_name="Demo Lotion",
+            brand_name="Demo Brand",
+            ingredient_text="Water, Sweet Almond Oil",
+            source="text_scan",
+        )
+    )
+
+    response = recent_scan_history(limit=10)
+
+    assert len(response.items) == 1
+    item = response.items[0]
+    assert item.scan_type == "barcode_lookup"
+    assert item.barcode == "5555555555555"
+    assert item.product_name == "Demo Lotion"
+    assert item.brand_name == "Demo Brand"
+    assert item.product_source == "text_scan"
+    assert item.submitted_ingredient_text == "Water, Sweet Almond Oil"
