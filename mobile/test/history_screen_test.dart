@@ -8,15 +8,20 @@ class FakeHistoryApiClient extends ThatsNutsApiClient {
   FakeHistoryApiClient({
     required this.response,
     this.throwError = false,
+    this.throwParsingError = false,
   });
 
   final ScanHistoryResponse response;
   final bool throwError;
+  final bool throwParsingError;
 
   @override
   Future<ScanHistoryResponse> fetchScanHistory({int limit = 20}) async {
     if (throwError) {
       throw const ThatsNutsApiException('Backend unavailable.');
+    }
+    if (throwParsingError) {
+      throw const FormatException('Invalid response payload.');
     }
     return response;
   }
@@ -117,6 +122,52 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('No scan history yet.'), findsOneWidget);
+    expect(find.textContaining('No scans yet.'), findsOneWidget);
+    expect(find.text('Could not load history'), findsNothing);
+  });
+
+  testWidgets('renders error state when the history request fails',
+      (WidgetTester tester) async {
+    final apiClient = FakeHistoryApiClient(
+      response: const ScanHistoryResponse(items: []),
+      throwError: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HistoryScreen(
+          apiClient: apiClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not load history'), findsOneWidget);
+    expect(find.text('Backend unavailable.'), findsOneWidget);
+    expect(find.textContaining('No scans yet.'), findsNothing);
+  });
+
+  testWidgets('renders error state when the history payload cannot be parsed',
+      (WidgetTester tester) async {
+    final apiClient = FakeHistoryApiClient(
+      response: const ScanHistoryResponse(items: []),
+      throwParsingError: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HistoryScreen(
+          apiClient: apiClient,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not load history'), findsOneWidget);
+    expect(
+      find.text('Something went wrong while loading scan history.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('No scans yet.'), findsNothing);
   });
 }

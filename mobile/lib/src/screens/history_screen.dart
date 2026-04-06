@@ -19,6 +19,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   bool _isLoading = true;
+  bool _loadedSuccessfully = false;
   String? _errorMessage;
   List<ScanHistoryItem> _items = const [];
 
@@ -40,6 +41,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return;
       }
       setState(() {
+        _loadedSuccessfully = true;
         _items = response.items;
       });
     } on ThatsNutsApiException catch (error) {
@@ -47,6 +49,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return;
       }
       setState(() {
+        _loadedSuccessfully = false;
+        _items = const [];
         _errorMessage = error.message;
       });
     } catch (_) {
@@ -54,6 +58,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return;
       }
       setState(() {
+        _loadedSuccessfully = false;
+        _items = const [];
         _errorMessage = 'Something went wrong while loading scan history.';
       });
     } finally {
@@ -175,12 +181,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
               )
-            else if (_items.isEmpty)
+            else if (_loadedSuccessfully && _items.isEmpty)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    'No scan history yet. Run a manual ingredient check or barcode lookup first.',
+                    'No scans yet. Run a manual ingredient check or barcode lookup first.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/allergy_profile.dart';
-import '../services/ingredient_image_picker.dart';
 import '../services/thats_nuts_api_client.dart';
-import '../widgets/ingredient_capture_options.dart';
 import 'result_screen.dart';
 
 class ManualIngredientInputScreen extends StatefulWidget {
@@ -11,14 +9,12 @@ class ManualIngredientInputScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.allergyProfile,
-    this.imagePicker = const _DefaultIngredientImagePicker(),
   });
 
   static const routeName = '/manual-input';
 
   final ThatsNutsApiClient apiClient;
   final AllergyProfile allergyProfile;
-  final IngredientImagePicker imagePicker;
 
   @override
   State<ManualIngredientInputScreen> createState() =>
@@ -28,7 +24,6 @@ class ManualIngredientInputScreen extends StatefulWidget {
 class _ManualIngredientInputScreenState
     extends State<ManualIngredientInputScreen> {
   final _controller = TextEditingController();
-  PickedIngredientImage? _attachedImage;
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -85,132 +80,73 @@ class _ManualIngredientInputScreenState
     }
   }
 
-  Future<void> _pickImage(IngredientImageSource source) async {
-    try {
-      final pickedImage = await widget.imagePicker.pickImage(source);
-      if (!mounted || pickedImage == null) {
-        return;
-      }
-      setState(() {
-        _attachedImage = pickedImage;
-        _errorMessage = null;
-      });
-    } catch (_) {
-      setState(() {
-        _errorMessage = source == IngredientImageSource.camera
-            ? 'Could not open the camera right now.'
-            : 'Could not open the photo library right now.';
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manual Ingredient Check'),
       ),
-      body: ListView(
+      body: Padding(
         padding: const EdgeInsets.all(20),
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Paste the ingredient list from a product label.',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.allergyProfile.hasSelections
-                    ? 'Profile: ${widget.allergyProfile.summary}'
-                    : 'Profile: checking all supported nut-related ingredients.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-              IngredientCaptureOptions(
-                onTakePhoto: () => _pickImage(IngredientImageSource.camera),
-                onChoosePhoto: () => _pickImage(IngredientImageSource.library),
-                attachedImage: _attachedImage,
-                onRemovePhoto: _attachedImage == null
-                    ? null
-                    : () {
-                        setState(() {
-                          _attachedImage = null;
-                        });
-                      },
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 280,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Ingredient Text',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        expands: true,
-                        maxLines: null,
-                        minLines: null,
-                        textAlignVertical: TextAlignVertical.top,
-                        decoration: const InputDecoration(
-                          labelText: 'Ingredients',
-                          alignLabelWithHint: true,
-                          hintText:
-                              'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tip: On iPhone, tap the text field and use text scan to capture ingredients from the label.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Paste the ingredient list from a product label.',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.allergyProfile.hasSelections
+                  ? 'Profile: ${widget.allergyProfile.summary}'
+                  : 'Profile: checking all supported nut-related ingredients.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                expands: true,
+                maxLines: null,
+                minLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                decoration: const InputDecoration(
+                  labelText: 'Ingredients',
+                  alignLabelWithHint: true,
+                  hintText:
+                      'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
+                  border: OutlineInputBorder(),
                 ),
               ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _errorMessage!,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tip: On iPhone, tap the text field and use text scan to capture ingredients from the label.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isSubmitting ? null : _submit,
-                  child:
-                      Text(_isSubmitting ? 'Checking...' : 'Check Ingredients'),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
                 ),
               ),
             ],
-          ),
-        ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _isSubmitting ? null : _submit,
+                child:
+                    Text(_isSubmitting ? 'Checking...' : 'Check Ingredients'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
-  }
-}
-
-class _DefaultIngredientImagePicker implements IngredientImagePicker {
-  const _DefaultIngredientImagePicker();
-
-  @override
-  Future<PickedIngredientImage?> pickImage(IngredientImageSource source) {
-    return DeviceIngredientImagePicker().pickImage(source);
   }
 }

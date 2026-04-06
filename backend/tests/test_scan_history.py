@@ -1,8 +1,14 @@
+import json
+import sqlite3
+
 from app.api.routes.check_ingredients import check_ingredients
 from app.api.routes.product_lookup import enrich_product, lookup_product
+from app.core.config import get_settings
+from app.db.session import get_engine
 from app.api.routes.scan_history import recent_scan_history
 from app.schemas.ingredients import IngredientCheckRequest
 from app.schemas.products import ProductEnrichmentRequest, ProductLookupRequest
+from app.services.product_lookup import get_product_lookup_service
 from app.services.persistence import prepare_persistence
 
 
@@ -110,3 +116,155 @@ def test_recent_scan_history_marks_manual_barcode_enrichment(temp_database):
     assert item.brand_name == "Demo Brand"
     assert item.product_source == "text_scan"
     assert item.submitted_ingredient_text == "Water, Sweet Almond Oil"
+
+
+def test_recent_scan_history_migrates_legacy_database_rows(monkeypatch, tmp_path):
+    database_path = tmp_path / "legacy.db"
+    connection = sqlite3.connect(database_path)
+    cursor = connection.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE products (
+            id INTEGER PRIMARY KEY,
+            name VARCHAR NOT NULL,
+            brand VARCHAR,
+            barcode VARCHAR,
+            ingredient_text TEXT,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE scan_history (
+            id INTEGER PRIMARY KEY,
+            product_id INTEGER,
+            submitted_ingredient_text TEXT NOT NULL,
+            result_status VARCHAR NOT NULL,
+            explanation TEXT,
+            matched_ingredients JSON NOT NULL,
+            created_at DATETIME NOT NULL,
+            scan_type TEXT NOT NULL DEFAULT 'manual_ingredient_check',
+            submitted_barcode TEXT
+        )
+        """
+    )
+    cursor.execute(
+        """
+        INSERT INTO products (
+            id,
+            name,
+            brand,
+            barcode,
+            ingredient_text,
+            created_at,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            1,
+            "Legacy Lotion",
+            "Legacy Brand",
+            "1234567890123",
+            "Water, Almond Oil",
+            "2026-04-01 08:00:00",
+            "2026-04-01 08:00:00",
+        ),
+    )
+    cursor.execute(
+        """
+        INSERT INTO scan_history (
+            id,
+            product_id,
+            submitted_ingredient_text,
+            result_status,
+            explanation,
+            matched_ingredients,
+            created_at,
+            scan_type,
+            submitted_barcode
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            1,
+            1,
+            "Water, Almond Oil",
+            "contains_nut_ingredient",
+            "Matched almond oil.",
+            json.dumps([{"original_text": "Almond Oil"}]),
+            "2026-04-02 08:00:00",
+            "barcode_lookup",
+            "1234567890123",
+        ),
+    )
+    cursor.execute(
+        """
+        INSERT INTO scan_history (
+            id,
+            product_id,
+            submitted_ingredient_text,
+            result_status,
+            explanation,
+            matched_ingredients,
+            created_at,
+            scan_type,
+            submitted_barcode
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            2,
+            None,
+            "Water, Glycerin, Walnut Shell Powder",
+            "contains_nut_ingredient",
+            "Matched walnut shell powder.",
+            json.dumps([{"original_text": "Walnut Shell Powder"}]),
+            "2026-04-02 07:00:00",
+            "manual_ingredient_check",
+            None,
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+    monkeypatch.setenv("DATABASE_AUTO_CREATE", "true")
+    monkeypatch.setenv("DATABASE_SEED_DATA", "false")
+
+    get_product_lookup_service.cache_clear()
+    get_engine.cache_clear()
+    get_settings.cache_clear()
+
+    try:
+        assert prepare_persistence() is True
+
+        enrich_product(
+            ProductEnrichmentRequest(
+                barcode="5555555555555",
+                product_name="Migrated Demo Lotion",
+                brand_name="Demo Brand",
+                ingredient_text="Water, Sweet Almond Oil",
+                source="text_scan",
+            )
+        )
+
+        response = recent_scan_history(limit=10)
+
+        assert [item.barcode for item in response.items] == [
+            "5555555555555",
+            "1234567890123",
+            None,
+        ]
+        assert response.items[0].product_name == "Migrated Demo Lotion"
+        assert response.items[0].brand_name == "Demo Brand"
+        assert response.items[0].product_source == "text_scan"
+        assert response.items[1].product_name == "Legacy Lotion"
+        assert response.items[1].brand_name == "Legacy Brand"
+        assert response.items[1].product_source == "manual"
+        assert response.items[2].submitted_ingredient_text == (
+            "Water, Glycerin, Walnut Shell Powder"
+        )
+    finally:
+        get_product_lookup_service.cache_clear()
+        get_engine.cache_clear()
+        get_settings.cache_clear()

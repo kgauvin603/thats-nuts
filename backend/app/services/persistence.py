@@ -29,6 +29,9 @@ def prepare_persistence() -> bool:
     if not initialize_database():
         return False
 
+    if not ensure_products_schema():
+        return False
+
     if not ensure_scan_history_schema():
         return False
 
@@ -269,6 +272,158 @@ def list_recent_scan_history(limit: int = 20) -> List[ScanHistoryEntry]:
         return []
 
 
+def ensure_products_schema() -> bool:
+    try:
+        engine = get_engine()
+        inspector = inspect(engine)
+        if "products" not in inspector.get_table_names():
+            return True
+
+        columns = {column["name"] for column in inspector.get_columns("products")}
+        if "name" in columns or "brand" in columns:
+            product_name_expr = (
+                "COALESCE(NULLIF(product_name, ''), NULLIF(name, ''))"
+                if "product_name" in columns
+                else "NULLIF(name, '')"
+            )
+            brand_name_expr = (
+                "COALESCE(NULLIF(brand_name, ''), NULLIF(brand, ''))"
+                if "brand_name" in columns
+                else "NULLIF(brand, '')"
+            )
+            image_url_expr = "image_url" if "image_url" in columns else "NULL"
+            coverage_expr = (
+                "COALESCE(NULLIF(ingredient_coverage_status, ''), 'unknown')"
+                if "ingredient_coverage_status" in columns
+                else "'unknown'"
+            )
+            source_expr = (
+                "COALESCE(NULLIF(source, ''), 'manual')"
+                if "source" in columns
+                else "'manual'"
+            )
+
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        """
+                        CREATE TABLE products__migration (
+                            id INTEGER PRIMARY KEY,
+                            barcode VARCHAR,
+                            product_name VARCHAR,
+                            brand_name VARCHAR,
+                            image_url VARCHAR,
+                            ingredient_text TEXT,
+                            ingredient_coverage_status TEXT NOT NULL DEFAULT 'unknown',
+                            source TEXT NOT NULL DEFAULT 'manual',
+                            created_at DATETIME NOT NULL,
+                            updated_at DATETIME NOT NULL
+                        )
+                        """
+                    )
+                )
+                connection.execute(
+                    text(
+                        f"""
+                        INSERT INTO products__migration (
+                            id,
+                            barcode,
+                            product_name,
+                            brand_name,
+                            image_url,
+                            ingredient_text,
+                            ingredient_coverage_status,
+                            source,
+                            created_at,
+                            updated_at
+                        )
+                        SELECT
+                            id,
+                            barcode,
+                            {product_name_expr},
+                            {brand_name_expr},
+                            {image_url_expr},
+                            ingredient_text,
+                            {coverage_expr},
+                            {source_expr},
+                            created_at,
+                            updated_at
+                        FROM products
+                        """
+                    )
+                )
+                connection.execute(text("DROP TABLE products"))
+                connection.execute(text("ALTER TABLE products__migration RENAME TO products"))
+            return True
+
+        statements = []
+        if "product_name" not in columns:
+            statements.append("ALTER TABLE products ADD COLUMN product_name TEXT")
+        if "brand_name" not in columns:
+            statements.append("ALTER TABLE products ADD COLUMN brand_name TEXT")
+        if "image_url" not in columns:
+            statements.append("ALTER TABLE products ADD COLUMN image_url TEXT")
+        if "ingredient_coverage_status" not in columns:
+            statements.append(
+                "ALTER TABLE products ADD COLUMN ingredient_coverage_status TEXT NOT NULL DEFAULT 'unknown'"
+            )
+        if "source" not in columns:
+            statements.append("ALTER TABLE products ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'")
+
+        with engine.begin() as connection:
+            for statement in statements:
+                connection.execute(text(statement))
+
+            if "name" in columns:
+                connection.execute(
+                    text(
+                        """
+                        UPDATE products
+                        SET product_name = COALESCE(NULLIF(product_name, ''), name)
+                        WHERE name IS NOT NULL
+                          AND TRIM(name) <> ''
+                        """
+                    )
+                )
+
+            if "brand" in columns:
+                connection.execute(
+                    text(
+                        """
+                        UPDATE products
+                        SET brand_name = COALESCE(NULLIF(brand_name, ''), brand)
+                        WHERE brand IS NOT NULL
+                          AND TRIM(brand) <> ''
+                        """
+                    )
+                )
+
+            connection.execute(
+                text(
+                    """
+                    UPDATE products
+                    SET ingredient_coverage_status = 'unknown'
+                    WHERE ingredient_coverage_status IS NULL
+                       OR ingredient_coverage_status = ''
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    UPDATE products
+                    SET source = 'manual'
+                    WHERE source IS NULL
+                       OR source = ''
+                    """
+                )
+            )
+        return True
+    except Exception:
+        logger.exception("Product schema update failed. Continuing without database-backed persistence.")
+        return False
+
+
 def ensure_scan_history_schema() -> bool:
     try:
         engine = get_engine()
@@ -284,6 +439,8 @@ def ensure_scan_history_schema() -> bool:
             )
         if "submitted_barcode" not in columns:
             statements.append("ALTER TABLE scan_history ADD COLUMN submitted_barcode TEXT")
+        if "allergy_profile_id" not in columns:
+            statements.append("ALTER TABLE scan_history ADD COLUMN allergy_profile_id INTEGER")
 
         if statements:
             with engine.begin() as connection:
