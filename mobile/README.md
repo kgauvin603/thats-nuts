@@ -20,7 +20,7 @@ Lightweight Flutter client scaffold for Thats Nuts.
 ## Prerequisites
 
 - Flutter SDK installed locally
-- backend running on port `8002`
+- access to the HTTPS backend at `https://api.thatsnuts.activeadvantage.co`
 
 This repository does not include generated platform folders yet because Flutter tooling is not available in this environment. Generate them locally with:
 
@@ -52,18 +52,23 @@ Photo capture is wired on-device, but OCR/image upload for ingredient extraction
 
 ## Run the app
 
-Use a backend URL appropriate for your simulator or device:
+The app now defaults to the production-style HTTPS backend:
 
 ```bash
 cd mobile
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8002
+flutter run
 ```
 
-Examples:
+The default base URL is:
 
-- Android emulator: `http://10.0.2.2:8002`
-- iOS simulator: `http://127.0.0.1:8002`
-- physical device: `http://YOUR_LAN_IP:8002`
+- `https://api.thatsnuts.activeadvantage.co`
+
+If you need to point at a different backend temporarily, override it explicitly:
+
+```bash
+cd mobile
+flutter run --dart-define=API_BASE_URL=https://your-custom-host.example.com
+```
 
 ## iPhone demo script
 
@@ -71,14 +76,12 @@ Use this for a short, reliable operator demo on iPhone.
 
 Prerequisites:
 
-- backend running via `./scripts/run_backend.sh`
-- demo barcodes loaded with `backend/.venv/bin/python scripts/load_demo_barcodes.py`
-- iPhone and backend host on the same network
-- app started with `flutter run --dart-define=API_BASE_URL=http://YOUR_LAN_IP:8002`
+- HTTPS backend reachable at `https://api.thatsnuts.activeadvantage.co`
+- app started with `flutter run`
 
 Backend URL check:
 
-1. Open `http://YOUR_LAN_IP:8002/health` in Safari on the iPhone.
+1. Open `https://api.thatsnuts.activeadvantage.co/health` in Safari on the iPhone.
 2. Confirm the page returns a healthy response before opening the app demo.
 
 Demo flow:

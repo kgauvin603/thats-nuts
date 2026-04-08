@@ -15,7 +15,7 @@ class ThatsNutsApiClient {
         _baseUrl = baseUrl ??
             const String.fromEnvironment(
               'API_BASE_URL',
-              defaultValue: 'http://10.0.2.2:8002',
+              defaultValue: 'https://api.thatsnuts.activeadvantage.co',
             );
 
   final http.Client _httpClient;
