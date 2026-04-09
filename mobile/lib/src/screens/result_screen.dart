@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../models/ingredient_check_models.dart';
 import '../models/product_lookup_models.dart';
 
@@ -97,26 +98,26 @@ class ResultScreen extends StatelessWidget {
   Color _statusColor() {
     switch (resultStatus) {
       case 'contains_nut_ingredient':
-        return const Color(0xFFC53B33);
+        return BrandColors.danger;
       case 'possible_nut_derived_ingredient':
-        return const Color(0xFFC17A00);
+        return BrandColors.warning;
       case 'no_nut_ingredient_found':
-        return const Color(0xFF2E7D32);
+        return BrandColors.success;
       default:
-        return const Color(0xFF6B7280);
+        return BrandColors.olive;
     }
   }
 
   Color _statusSurfaceColor() {
     switch (resultStatus) {
       case 'contains_nut_ingredient':
-        return const Color(0xFFFDE8E6);
+        return BrandColors.dangerSurface;
       case 'possible_nut_derived_ingredient':
-        return const Color(0xFFFFF3DB);
+        return BrandColors.warningSurface;
       case 'no_nut_ingredient_found':
-        return const Color(0xFFE6F4EA);
+        return BrandColors.successSurface;
       default:
-        return const Color(0xFFF1F3F5);
+        return BrandColors.neutralSurface;
     }
   }
 
@@ -248,9 +249,9 @@ class ResultScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: BrandColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE3E0D8)),
+        border: Border.all(color: BrandColors.border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x12000000),

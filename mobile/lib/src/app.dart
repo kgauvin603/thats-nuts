@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'brand.dart';
 import 'models/allergy_profile.dart';
 import 'screens/barcode_input_screen.dart';
 import 'screens/barcode_scanner_screen.dart';
@@ -9,6 +10,7 @@ import 'screens/manual_ingredient_input_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/allergy_profile_store.dart';
 import 'services/thats_nuts_api_client.dart';
+import 'theme.dart';
 
 class ThatsNutsApp extends StatefulWidget {
   const ThatsNutsApp({
@@ -55,12 +57,8 @@ class _ThatsNutsAppState extends State<ThatsNutsApp> {
   Widget build(BuildContext context) {
     if (_isLoadingProfile) {
       return MaterialApp(
-        title: 'Thats Nuts',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF52634B)),
-          scaffoldBackgroundColor: const Color(0xFFF7F4EE),
-          useMaterial3: true,
-        ),
+        title: kAppName,
+        theme: buildThatsNutsTheme(),
         home: const Scaffold(
           body: Center(
             child: CircularProgressIndicator(),
@@ -70,19 +68,16 @@ class _ThatsNutsAppState extends State<ThatsNutsApp> {
     }
 
     return MaterialApp(
-      title: 'Thats Nuts',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF52634B)),
-        scaffoldBackgroundColor: const Color(0xFFF7F4EE),
-        useMaterial3: true,
-      ),
+      title: kAppName,
+      theme: buildThatsNutsTheme(),
       home: HomeScreen(
         apiClient: _apiClient,
         allergyProfile: _allergyProfile,
         onProfileSaved: _updateAllergyProfile,
       ),
       routes: {
-        ManualIngredientInputScreen.routeName: (context) => ManualIngredientInputScreen(
+        ManualIngredientInputScreen.routeName: (context) =>
+            ManualIngredientInputScreen(
               apiClient: _apiClient,
               allergyProfile: _allergyProfile,
             ),

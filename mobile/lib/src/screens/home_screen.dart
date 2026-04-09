@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../models/allergy_profile.dart';
 import '../services/thats_nuts_api_client.dart';
+import '../widgets/acorn_mark.dart';
 import 'barcode_input_screen.dart';
 import 'barcode_scanner_screen.dart';
 import 'history_screen.dart';
@@ -35,7 +37,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Thats Nuts'),
+        title: const Text(kAppName),
         actions: [
           IconButton(
             onPressed: () => _openProfile(context),
@@ -47,9 +49,49 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Text(
-            'Nut-allergy ingredient checks for skincare and personal care products.',
-            style: Theme.of(context).textTheme.titleMedium,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+            decoration: BoxDecoration(
+              color: BrandColors.surface,
+              borderRadius: BorderRadius.circular(28),
+              gradient: const LinearGradient(
+                colors: [
+                  BrandColors.surface,
+                  BrandColors.mossy,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: BrandColors.border),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const AcornMark(size: 60),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Nut-allergy ingredient checks for skincare and personal care products.',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  height: 1.35,
+                                ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Text(

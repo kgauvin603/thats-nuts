@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../services/ingredient_image_picker.dart';
 
 class IngredientCaptureOptions extends StatelessWidget {
@@ -34,9 +35,9 @@ class IngredientCaptureOptions extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: BrandColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE3E0D8)),
+        border: Border.all(color: BrandColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
