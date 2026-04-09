@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const String kAppName = 'Thats Nuts!';
+const String kAppName = "That's Nuts!";
 
 class BrandColors {
   static const Color mossy = Color(0xFFDDCCA1);
