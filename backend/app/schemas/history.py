@@ -6,7 +6,11 @@ from pydantic import BaseModel, Field
 from app.schemas.ingredients import IngredientCheckStatus
 
 
-ScanType = Literal["manual_ingredient_check", "barcode_lookup"]
+ScanType = Literal[
+    "manual_ingredient_check",
+    "barcode_lookup",
+    "barcode_enrichment",
+]
 
 
 class ScanHistoryEntry(BaseModel):

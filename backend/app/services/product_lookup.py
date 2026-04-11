@@ -359,6 +359,7 @@ class ProductLookupService:
             product,
             source_explanation=MANUAL_ENRICHMENT_EXPLANATION,
             allergy_profile=allergy_profile,
+            scan_type="barcode_enrichment",
         )
 
     def _build_assessed_response(
@@ -366,6 +367,7 @@ class ProductLookupService:
         product: NormalizedProduct,
         source_explanation: str,
         allergy_profile: Optional[AllergyProfile] = None,
+        scan_type: str = "barcode_lookup",
     ) -> ProductLookupResponse:
         ingredient_text = product.ingredient_text
         product_id = upsert_product(product)
@@ -380,7 +382,7 @@ class ProductLookupService:
                 assessment,
                 allergy_profile=allergy_profile,
                 product_id=product_id,
-                scan_type="barcode_lookup",
+                scan_type=scan_type,
                 submitted_barcode=product.barcode,
             )
             return ProductLookupResponse(
@@ -406,7 +408,7 @@ class ProductLookupService:
             assessment,
             allergy_profile=allergy_profile,
             product_id=product_id,
-            scan_type="barcode_lookup",
+            scan_type=scan_type,
             submitted_barcode=product.barcode,
         )
         return ProductLookupResponse(

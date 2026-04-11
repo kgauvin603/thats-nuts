@@ -21,12 +21,11 @@ void main() {
       ),
     );
 
-    expect(find.text('Paste the ingredient list from a product label.'),
-        findsOneWidget);
+    expect(find.text('Enter the ingredient list.'), findsOneWidget);
     expect(find.text('Profile: Almond'), findsOneWidget);
     expect(
       find.text(
-        'Tip: On iPhone, tap the text field and use text scan to capture ingredients from the label.',
+        'On iPhone, use text scan right from the field.',
       ),
       findsOneWidget,
     );

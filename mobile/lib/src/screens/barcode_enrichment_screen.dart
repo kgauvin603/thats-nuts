@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/allergy_profile.dart';
-import '../services/ingredient_image_picker.dart';
 import '../services/thats_nuts_api_client.dart';
-import '../widgets/ingredient_capture_options.dart';
 import 'result_screen.dart';
 
 class BarcodeEnrichmentScreen extends StatefulWidget {
@@ -14,7 +12,6 @@ class BarcodeEnrichmentScreen extends StatefulWidget {
     required this.barcode,
     this.initialProductName,
     this.initialBrandName,
-    this.imagePicker = const _DefaultIngredientImagePicker(),
   });
 
   final ThatsNutsApiClient apiClient;
@@ -22,7 +19,6 @@ class BarcodeEnrichmentScreen extends StatefulWidget {
   final String barcode;
   final String? initialProductName;
   final String? initialBrandName;
-  final IngredientImagePicker imagePicker;
 
   @override
   State<BarcodeEnrichmentScreen> createState() =>
@@ -33,7 +29,6 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
   late final TextEditingController _productNameController;
   late final TextEditingController _brandNameController;
   final TextEditingController _ingredientController = TextEditingController();
-  PickedIngredientImage? _attachedImage;
   bool _isSubmitting = false;
   String? _errorMessage;
 
@@ -105,32 +100,13 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
     }
   }
 
-  Future<void> _pickImage(IngredientImageSource source) async {
-    try {
-      final pickedImage = await widget.imagePicker.pickImage(source);
-      if (!mounted || pickedImage == null) {
-        return;
-      }
-      setState(() {
-        _attachedImage = pickedImage;
-        _errorMessage = null;
-      });
-    } catch (_) {
-      setState(() {
-        _errorMessage = source == IngredientImageSource.camera
-            ? 'Could not open the camera right now.'
-            : 'Could not open the photo library right now.';
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Ingredients for Barcode'),
+        title: const Text('Add Ingredients for This Barcode'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -139,7 +115,7 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Save ingredients for this barcode so future scans can use the label text you captured.',
+                'Save the label ingredients for future scans.',
                 style: textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
@@ -148,19 +124,6 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
                     ? 'Profile: ${widget.allergyProfile.summary}'
                     : 'Profile: checking all supported nut-related ingredients.',
                 style: textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-              IngredientCaptureOptions(
-                onTakePhoto: () => _pickImage(IngredientImageSource.camera),
-                onChoosePhoto: () => _pickImage(IngredientImageSource.library),
-                attachedImage: _attachedImage,
-                onRemovePhoto: _attachedImage == null
-                    ? null
-                    : () {
-                        setState(() {
-                          _attachedImage = null;
-                        });
-                      },
               ),
               const SizedBox(height: 16),
               InputDecorator(
@@ -213,7 +176,7 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Tip: On iPhone, tap the text field and use text scan to capture ingredients from the label.',
+                      'On iPhone, use text scan right from the field.',
                       style: textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -247,14 +210,5 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
         ],
       ),
     );
-  }
-}
-
-class _DefaultIngredientImagePicker implements IngredientImagePicker {
-  const _DefaultIngredientImagePicker();
-
-  @override
-  Future<PickedIngredientImage?> pickImage(IngredientImageSource source) {
-    return DeviceIngredientImagePicker().pickImage(source);
   }
 }

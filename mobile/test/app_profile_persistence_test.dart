@@ -16,7 +16,8 @@ class FakeAllergyProfileStore extends AllergyProfileStore {
 }
 
 void main() {
-  testWidgets('loads saved allergy profile when the app starts', (WidgetTester tester) async {
+  testWidgets('loads saved allergy profile when the app starts',
+      (WidgetTester tester) async {
     await tester.pumpWidget(
       const ThatsNutsApp(
         profileStore: FakeAllergyProfileStore(
@@ -31,6 +32,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Focused on: Almond, Argan'), findsOneWidget);
-    expect(find.text('Manual Ingredient Check'), findsOneWidget);
+    expect(find.text('Enter Ingredients'), findsOneWidget);
   });
 }

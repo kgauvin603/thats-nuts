@@ -80,7 +80,7 @@ def test_recent_scan_history_includes_unsuccessful_barcode_lookups(temp_database
 
     assert len(response.items) == 1
     item = response.items[0]
-    assert item.scan_type == "barcode_lookup"
+    assert item.scan_type == "barcode_enrichment"
     assert item.barcode == "9999999999999"
     assert item.product_name is None
     assert item.brand_name is None
@@ -257,6 +257,7 @@ def test_recent_scan_history_migrates_legacy_database_rows(monkeypatch, tmp_path
         ]
         assert response.items[0].product_name == "Migrated Demo Lotion"
         assert response.items[0].brand_name == "Demo Brand"
+        assert response.items[0].scan_type == "barcode_enrichment"
         assert response.items[0].product_source == "text_scan"
         assert response.items[1].product_name == "Legacy Lotion"
         assert response.items[1].brand_name == "Legacy Brand"

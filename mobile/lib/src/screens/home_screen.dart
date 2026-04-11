@@ -50,7 +50,7 @@ class HomeScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             decoration: BoxDecoration(
               color: BrandColors.surface,
               borderRadius: BorderRadius.circular(28),
@@ -80,12 +80,24 @@ class HomeScreen extends StatelessWidget {
                     const AcornMark(size: 60),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: Text(
-                        'Nut-allergy ingredient checks for skincare and personal care products.',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Check ingredients fast.',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Scan a barcode or paste a label when you need a quick answer.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   height: 1.35,
                                 ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -93,35 +105,47 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Start with a manual ingredient list or test a barcode lookup against the backend.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Card(
             margin: EdgeInsets.zero,
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    'Allergy Profile',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Profile',
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          allergyProfile.hasSelections
+                              ? 'Focused on: ${allergyProfile.summary}'
+                              : 'All supported nut-related ingredients',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    allergyProfile.hasSelections
-                        ? 'Focused on: ${allergyProfile.summary}'
-                        : 'No profile selected. Checks will include all supported nut-related ingredients.',
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(width: 12),
                   OutlinedButton(
                     onPressed: () => _openProfile(context),
-                    child: const Text('Edit Profile'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                    ),
+                    child: const Text('Edit'),
                   ),
                 ],
               ),
@@ -141,7 +165,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text('Manual Ingredient Check'),
+              child: const Text('Enter Ingredients'),
             ),
           ),
           const SizedBox(height: 12),

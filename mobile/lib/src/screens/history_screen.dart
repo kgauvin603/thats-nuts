@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../models/scan_history_models.dart';
 import '../services/thats_nuts_api_client.dart';
 
@@ -74,13 +75,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Color _statusColor(BuildContext context, String status) {
     switch (status) {
       case 'contains_nut_ingredient':
-        return const Color(0xFFAA3A2A);
+        return BrandColors.danger;
       case 'possible_nut_derived_ingredient':
-        return const Color(0xFF946200);
+        return BrandColors.warning;
       case 'no_nut_ingredient_found':
-        return const Color(0xFF2F6B3A);
+        return BrandColors.success;
       default:
         return Theme.of(context).colorScheme.secondary;
+    }
+  }
+
+  Color _statusSurfaceColor(String status) {
+    switch (status) {
+      case 'contains_nut_ingredient':
+        return BrandColors.dangerSurface;
+      case 'possible_nut_derived_ingredient':
+        return BrandColors.warningSurface;
+      case 'no_nut_ingredient_found':
+        return BrandColors.successSurface;
+      default:
+        return BrandColors.neutralSurface;
     }
   }
 
@@ -98,20 +112,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   String _scanTypeLabel(String scanType) {
-    return scanType == 'barcode_lookup' ? 'Barcode lookup' : 'Manual check';
-  }
-
-  bool _isManualEnrichment(ScanHistoryItem item) {
-    return item.scanType == 'barcode_lookup' &&
-        (item.productSource == 'manual_entry' ||
-            item.productSource == 'text_scan');
-  }
-
-  String _sourceLabel(ScanHistoryItem item) {
-    if (_isManualEnrichment(item)) {
-      return 'Manual enrichment';
+    switch (scanType) {
+      case 'barcode_lookup':
+        return 'Barcode lookup';
+      case 'barcode_enrichment':
+        return 'Barcode enrichment';
+      default:
+        return 'Manual check';
     }
-    return _scanTypeLabel(item.scanType);
   }
 
   String _formatCreatedAt(DateTime createdAt) {
@@ -127,8 +135,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (item.productName != null && item.productName!.trim().isNotEmpty) {
       return item.productName!;
     }
-    if (_isManualEnrichment(item)) {
-      return 'Barcode enriched with manual ingredients';
+    if (item.scanType == 'barcode_enrichment') {
+      return 'Barcode enrichment';
     }
     if (item.scanType == 'barcode_lookup') {
       return 'Barcode lookup';
@@ -193,107 +201,174 @@ class _HistoryScreenState extends State<HistoryScreen> {
               )
             else
               ..._items.map(
-                (item) => Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            Chip(
-                              label: Text(_sourceLabel(item)),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            Chip(
-                              label: Text(_statusLabel(item.assessmentStatus)),
-                              visualDensity: VisualDensity.compact,
-                              backgroundColor: _statusColor(
-                                context,
-                                item.assessmentStatus,
-                              ).withOpacity(0.12),
-                              side: BorderSide.none,
-                              labelStyle: TextStyle(
-                                color: _statusColor(
-                                    context, item.assessmentStatus),
-                                fontWeight: FontWeight.w700,
+                (item) {
+                  final statusColor =
+                      _statusColor(context, item.assessmentStatus);
+                  final statusSurfaceColor =
+                      _statusSurfaceColor(item.assessmentStatus);
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    clipBehavior: Clip.antiAlias,
+                    child: IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(width: 8, color: statusColor),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      Chip(
+                                        label:
+                                            Text(_scanTypeLabel(item.scanType)),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      Chip(
+                                        label: Text(
+                                          _statusLabel(item.assessmentStatus),
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                        backgroundColor: statusSurfaceColor,
+                                        side: BorderSide(
+                                          color: statusColor.withOpacity(0.22),
+                                        ),
+                                        labelStyle: TextStyle(
+                                          color: statusColor,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _entryTitle(item),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                  if (item.brandName != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      item.brandName!,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: statusSurfaceColor,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: statusColor.withOpacity(0.18),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _statusLabel(item.assessmentStatus),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall
+                                              ?.copyWith(
+                                                color: statusColor,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                        ),
+                                        if (item.explanation != null) ...[
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            item.explanation!,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(height: 1.35),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  if (item.barcode != null) ...[
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'Barcode: ${item.barcode}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ],
+                                  if (item.submittedIngredientText != null &&
+                                      item.submittedIngredientText!
+                                          .trim()
+                                          .isNotEmpty) ...[
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      item.submittedIngredientText!,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Checked: ${_formatCreatedAt(item.createdAt)}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                  ),
+                                  if (item.matchedIngredientSummary !=
+                                      null) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Matched: ${item.matchedIngredientSummary}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: statusColor,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _entryTitle(item),
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                        if (item.brandName != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            item.brandName!,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
                           ),
                         ],
-                        const SizedBox(height: 10),
-                        if (item.barcode != null)
-                          Text('Barcode: ${item.barcode}'),
-                        if (_isManualEnrichment(item)) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Saved from manually captured ingredients for this barcode.',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                          ),
-                        ],
-                        if (item.submittedIngredientText != null &&
-                            item.submittedIngredientText!
-                                .trim()
-                                .isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            item.submittedIngredientText!,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                        Text('Checked: ${_formatCreatedAt(item.createdAt)}'),
-                        if (item.explanation != null) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            item.explanation!,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                        if (item.matchedIngredientSummary != null) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            'Matched: ${item.matchedIngredientSummary}',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
           ],
         ),

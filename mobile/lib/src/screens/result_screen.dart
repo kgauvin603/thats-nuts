@@ -281,13 +281,19 @@ class ResultScreen extends StatelessWidget {
     required String label,
     required String value,
     IconData? icon,
+    Color? backgroundColor,
+    Color? borderColor,
+    Color? valueColor,
+    Color? labelColor,
   }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: backgroundColor ??
+            Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
+        border: borderColor == null ? null : Border.all(color: borderColor),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +302,8 @@ class ResultScreen extends StatelessWidget {
             Icon(
               icon,
               size: 18,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color:
+                  labelColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 10),
           ],
@@ -307,7 +314,8 @@ class ResultScreen extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: labelColor ??
+                            Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -316,6 +324,7 @@ class ResultScreen extends StatelessWidget {
                   value,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w600,
+                        color: valueColor,
                       ),
                 ),
               ],
@@ -708,6 +717,10 @@ class ResultScreen extends StatelessWidget {
                   label: 'Assessment',
                   value: _statusLabel(),
                   icon: _statusIcon(),
+                  backgroundColor: _statusSurfaceColor(),
+                  borderColor: _statusColor().withOpacity(0.2),
+                  valueColor: _statusColor(),
+                  labelColor: _statusColor(),
                 ),
                 const SizedBox(height: 10),
                 _labeledDetail(
@@ -715,6 +728,8 @@ class ResultScreen extends StatelessWidget {
                   label: 'Matched ingredients',
                   value: _matchSummary(),
                   icon: Icons.list_alt_rounded,
+                  backgroundColor: _statusSurfaceColor(),
+                  borderColor: _statusColor().withOpacity(0.14),
                 ),
               ],
             ),

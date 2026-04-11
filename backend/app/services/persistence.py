@@ -442,27 +442,9 @@ def ensure_scan_history_schema() -> bool:
         if "allergy_profile_id" not in columns:
             statements.append("ALTER TABLE scan_history ADD COLUMN allergy_profile_id INTEGER")
 
-        if statements:
-            with engine.begin() as connection:
-                for statement in statements:
-                    connection.execute(text(statement))
-                connection.execute(
-                    text(
-                        """
-                        UPDATE scan_history
-                        SET scan_type = CASE
-                            WHEN product_id IS NOT NULL THEN 'barcode_lookup'
-                            ELSE 'manual_ingredient_check'
-                        END
-                        WHERE scan_type IS NULL
-                           OR scan_type = ''
-                           OR scan_type = 'manual_ingredient_check'
-                        """
-                    )
-                )
-            return True
-
         with engine.begin() as connection:
+            for statement in statements:
+                connection.execute(text(statement))
             connection.execute(
                 text(
                     """
@@ -471,8 +453,32 @@ def ensure_scan_history_schema() -> bool:
                         WHEN product_id IS NOT NULL THEN 'barcode_lookup'
                         ELSE 'manual_ingredient_check'
                     END
+                    WHERE scan_type IS NULL
+                       OR scan_type = ''
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    UPDATE scan_history
+                    SET scan_type = 'barcode_lookup'
                     WHERE product_id IS NOT NULL
-                      AND scan_type <> 'barcode_lookup'
+                      AND scan_type NOT IN ('barcode_lookup', 'barcode_enrichment')
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    UPDATE scan_history
+                    SET scan_type = 'barcode_enrichment'
+                    WHERE product_id IN (
+                        SELECT id
+                        FROM products
+                        WHERE source IN ('manual_entry', 'text_scan')
+                    )
+                      AND scan_type = 'barcode_lookup'
                     """
                 )
             )

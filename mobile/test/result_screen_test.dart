@@ -173,7 +173,7 @@ void main() {
         productName: 'Sample Lotion',
         imageUrl: null,
         ingredientCoverageStatus: 'complete',
-        source: 'text_scan',
+        source: 'manual_entry',
       ),
       ingredientText: 'water, sweet almond oil, glycerin',
       assessmentResult: 'contains_nut_ingredient',

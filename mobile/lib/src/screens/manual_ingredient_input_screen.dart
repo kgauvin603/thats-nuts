@@ -92,7 +92,7 @@ class _ManualIngredientInputScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Paste the ingredient list from a product label.',
+              'Enter the ingredient list.',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -121,7 +121,7 @@ class _ManualIngredientInputScreenState
             ),
             const SizedBox(height: 8),
             Text(
-              'Tip: On iPhone, tap the text field and use text scan to capture ingredients from the label.',
+              'On iPhone, use text scan right from the field.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

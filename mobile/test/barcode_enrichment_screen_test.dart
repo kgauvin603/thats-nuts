@@ -4,7 +4,6 @@ import 'package:thats_nuts_mobile/src/models/allergy_profile.dart';
 import 'package:thats_nuts_mobile/src/models/ingredient_check_models.dart';
 import 'package:thats_nuts_mobile/src/models/product_lookup_models.dart';
 import 'package:thats_nuts_mobile/src/screens/barcode_enrichment_screen.dart';
-import 'package:thats_nuts_mobile/src/services/ingredient_image_picker.dart';
 import 'package:thats_nuts_mobile/src/services/thats_nuts_api_client.dart';
 
 class FakeBarcodeEnrichmentApiClient extends ThatsNutsApiClient {
@@ -34,25 +33,6 @@ class FakeBarcodeEnrichmentApiClient extends ThatsNutsApiClient {
     capturedBrandName = brandName;
     capturedProfile = allergyProfile;
     return response;
-  }
-}
-
-class FakeIngredientImagePicker implements IngredientImagePicker {
-  FakeIngredientImagePicker({
-    this.nextImage,
-  });
-
-  final PickedIngredientImage? nextImage;
-
-  @override
-  Future<PickedIngredientImage?> pickImage(IngredientImageSource source) async {
-    return nextImage == null
-        ? null
-        : PickedIngredientImage(
-            fileName: nextImage!.fileName,
-            path: nextImage!.path,
-            source: source,
-          );
   }
 }
 
@@ -93,32 +73,20 @@ void main() {
           barcode: '9999999999999',
           initialProductName: 'Saved Product',
           initialBrandName: 'Saved Brand',
-          imagePicker: FakeIngredientImagePicker(
-            nextImage: const PickedIngredientImage(
-              fileName: 'label.png',
-              path: '/tmp/label.png',
-              source: IngredientImageSource.camera,
-            ),
-          ),
         ),
       ),
     );
 
-    expect(find.text('Add Ingredients for Barcode'), findsOneWidget);
+    expect(find.text('Add Ingredients for This Barcode'), findsOneWidget);
     expect(find.text('9999999999999'), findsOneWidget);
-    expect(find.text('Capture Options'), findsOneWidget);
-    expect(find.text('Take Photo'), findsOneWidget);
-    expect(find.text('Choose Photo'), findsOneWidget);
+    expect(find.text('Save the label ingredients for future scans.'),
+        findsOneWidget);
     expect(
       find.text(
-        'Tip: On iPhone, tap the text field and use text scan to capture ingredients from the label.',
+        'On iPhone, use text scan right from the field.',
       ),
       findsOneWidget,
     );
-    await tester.tap(find.text('Take Photo'));
-    await tester.pumpAndSettle();
-    expect(find.text('label.png'), findsOneWidget);
-    expect(find.text('Camera photo attached'), findsOneWidget);
 
     await tester.enterText(
       find.widgetWithText(TextField, 'Ingredient Text'),

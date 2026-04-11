@@ -34,7 +34,7 @@ void main() {
       response: ScanHistoryResponse(
         items: [
           ScanHistoryItem(
-            scanType: 'barcode_lookup',
+            scanType: 'barcode_enrichment',
             barcode: '012345678905',
             productName: 'Sample Lotion',
             brandName: 'Test Brand',
@@ -86,12 +86,8 @@ void main() {
     expect(find.text('Recent History'), findsOneWidget);
     expect(find.text('Sample Lotion'), findsOneWidget);
     expect(find.text('Barcode: 012345678905'), findsOneWidget);
-    expect(find.text('Manual enrichment'), findsOneWidget);
-    expect(
-      find.text('Saved from manually captured ingredients for this barcode.'),
-      findsOneWidget,
-    );
-    expect(find.text('Nut ingredient found'), findsNWidgets(2));
+    expect(find.text('Barcode enrichment'), findsOneWidget);
+    expect(find.text('Nut ingredient found'), findsNWidgets(4));
     expect(find.text('Matched sweet almond oil.'), findsOneWidget);
     expect(find.text('Matched: sweet almond oil'), findsOneWidget);
     expect(find.text('Manual ingredient check'), findsOneWidget);
