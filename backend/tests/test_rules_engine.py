@@ -9,6 +9,40 @@ def test_detects_almond_oil():
     assert result["matched_ingredients"][0]["nut_source"] == "almond"
 
 
+def test_detects_walnut_oil_common_name():
+    result = check_ingredient_text("Water, Walnut Oil, Glycerin")
+    assert result["status"] == "contains_nut_ingredient"
+    assert len(result["matched_ingredients"]) == 1
+    assert result["matched_ingredients"][0]["nut_source"] == "walnut"
+
+
+def test_detects_walnut_oil_inci_name():
+    result = check_ingredient_text("Water, Juglans Regia Seed Oil, Glycerin")
+    assert result["status"] == "contains_nut_ingredient"
+    assert len(result["matched_ingredients"]) == 1
+    assert result["matched_ingredients"][0]["nut_source"] == "walnut"
+
+
+def test_normalizes_multiline_and_inci_prefixes():
+    result = check_ingredient_text("INCI: Glycerin\nJuglans Regia Seed Oil\nWater")
+    assert result["status"] == "contains_nut_ingredient"
+    assert len(result["matched_ingredients"]) == 1
+    assert result["matched_ingredients"][0]["normalized_name"] == "juglans regia seed oil"
+
+
+def test_detects_macadamia_seed_oil():
+    result = check_ingredient_text("Water, Macadamia Seed Oil, Glycerin")
+    assert result["status"] == "contains_nut_ingredient"
+    assert len(result["matched_ingredients"]) == 1
+    assert result["matched_ingredients"][0]["nut_source"] == "macadamia"
+
+
+def test_glycerin_only_does_not_match():
+    result = check_ingredient_text("Glycerin")
+    assert result["status"] == "no_nut_ingredient_found"
+    assert result["matched_ingredients"] == []
+
+
 def test_returns_no_match_for_simple_non_nut_list():
     result = check_ingredient_text("Water, Glycerin, Cetyl Alcohol, Fragrance")
     assert result["status"] == "no_nut_ingredient_found"

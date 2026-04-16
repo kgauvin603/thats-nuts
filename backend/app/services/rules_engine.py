@@ -1,13 +1,11 @@
 from typing import Optional
 
 from app.schemas.ingredients import AllergyProfile
-from app.services.ingredient_parser import parse_ingredients
-from app.services.seed_rules import (
-    CANNOT_VERIFY_STATUS,
-    CONTAINS_STATUS,
-    POSSIBLE_STATUS,
-    load_seed_rule_set,
-)
+from app.services.ingredient_detection import detect_ingredient_text
+
+CANNOT_VERIFY_STATUS = "cannot_verify"
+CONTAINS_STATUS = "contains_nut_ingredient"
+POSSIBLE_STATUS = "possible_nut_derived_ingredient"
 
 NONE_STATUS = "no_nut_ingredient_found"
 
@@ -29,7 +27,6 @@ TREE_NUT_SOURCES = {
     "brazil_nut",
     "pecan",
 }
-
 
 def cannot_verify_response(explanation: str) -> dict:
     return {
@@ -59,11 +56,11 @@ def check_ingredient_text(
     if not ingredient_text or not ingredient_text.strip():
         return cannot_verify_response(BLANK_OR_UNUSABLE_EXPLANATION)
 
-    parsed = parse_ingredients(ingredient_text)
+    detection_result = detect_ingredient_text(ingredient_text)
+    parsed = detection_result.parsed_ingredients
     if not parsed:
         return cannot_verify_response(BLANK_OR_UNUSABLE_EXPLANATION)
 
-    rule_set = load_seed_rule_set()
     direct_matches = []
     possible_matches = []
     ambiguous_count = 0
@@ -77,18 +74,49 @@ def check_ingredient_text(
             unusable_count += 1
             continue
 
-        rule = rule_set.find_by_alias(normalized)
-        if not rule:
-            continue
-        if not profile_matches_rule(allergy_profile, rule.nut_source):
+        ingredient_direct_matches = [
+            match
+            for match in detection_result.ingredient_matches
+            if match.original_text == ingredient["original_text"]
+            and match.normalized_name == normalized
+        ]
+        for match in ingredient_direct_matches:
+            if not profile_matches_rule(allergy_profile, match.key):
+                continue
+            direct_matches.append(
+                {
+                    "original_text": match.original_text,
+                    "normalized_name": match.normalized_name,
+                    "nut_source": match.key,
+                    "confidence": "high",
+                    "reason": (
+                        f'Known {match.key.replace("_", " ")}-derived ingredient '
+                        f'matched by ruleset term(s): {", ".join(match.matched_terms)}.'
+                    ),
+                }
+            )
+        if ingredient_direct_matches:
             continue
 
-        match = rule.to_match(ingredient)
-        match_status = rule.status
-        if match_status == CONTAINS_STATUS:
-            direct_matches.append(match)
-        elif match_status == POSSIBLE_STATUS:
-            possible_matches.append(match)
+        ingredient_possible_match = next(
+            (
+                match
+                for match in detection_result.possible_matches
+                if match.original_text == ingredient["original_text"]
+                and match.normalized_name == normalized
+            ),
+            None,
+        )
+        if ingredient_possible_match and profile_matches_rule(allergy_profile, "unknown"):
+            possible_matches.append(
+                {
+                    "original_text": ingredient_possible_match.original_text,
+                    "normalized_name": ingredient_possible_match.normalized_name,
+                    "nut_source": "unknown",
+                    "confidence": ingredient_possible_match.confidence,
+                    "reason": ingredient_possible_match.reason,
+                }
+            )
 
     if direct_matches:
         count = len(direct_matches)
@@ -123,5 +151,8 @@ def check_ingredient_text(
     return {
         "status": NONE_STATUS,
         "matched_ingredients": [],
-        "explanation": "No nut-derived ingredients were matched in the provided ingredient list.",
+        "explanation": (
+            f"No known nut-linked ingredients from ruleset "
+            f"{detection_result.ruleset_version} were detected in the provided ingredient list."
+        ),
     }

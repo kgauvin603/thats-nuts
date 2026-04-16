@@ -28,14 +28,19 @@ UNUSABLE_TERMS = {
 
 def normalize_text(value: str) -> str:
     value = value.lower().strip()
+    value = re.sub(r"\binci\s*:", " ", value)
+    value = re.sub(r"\bn\s*/\s*a\b", "na", value)
     value = re.sub(r"\([^)]*\)", "", value)
     value = re.sub(r"[^a-z0-9\s/-]", " ", value)
+    value = value.replace("/", " ")
+    value = value.replace("-", " ")
     value = re.sub(r"\s+", " ", value).strip()
     return value
 
 
 def split_ingredients(ingredient_text: str) -> List[str]:
-    raw_parts = ingredient_text.split(",")
+    normalized_input = ingredient_text.replace("\r", "\n")
+    raw_parts = re.split(r"[,;\n]+", normalized_input)
     return [part.strip() for part in raw_parts if part.strip()]
 
 

@@ -1,8 +1,11 @@
 import json
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
+
+from app.services.ingredient_parser import normalize_text
 
 SEED_PATH = Path(__file__).resolve().parent.parent / "data" / "nut_ingredients_seed.json"
 
@@ -34,7 +37,7 @@ class SeedIngredientRule:
     def from_dict(cls, payload: Dict) -> "SeedIngredientRule":
         confidence = payload["confidence"]
         return cls(
-            aliases=tuple(payload["aliases"]),
+            aliases=tuple(normalize_text(alias) for alias in payload["aliases"]),
             nut_source=payload["nut_source"],
             confidence=confidence,
             status=payload.get("status", status_for_confidence(confidence)),
@@ -67,6 +70,25 @@ class SeedRuleSet:
 
     def find_by_alias(self, normalized_name: str) -> Optional[SeedIngredientRule]:
         return self.alias_lookup.get(normalized_name)
+
+    def find_match(self, normalized_name: str) -> Optional[SeedIngredientRule]:
+        direct_match = self.find_by_alias(normalized_name)
+        if direct_match:
+            return direct_match
+
+        for alias, rule in self.alias_lookup.items():
+            if not alias:
+                continue
+            if _contains_alias_phrase(normalized_name, alias):
+                return rule
+
+        return None
+
+
+def _contains_alias_phrase(normalized_name: str, alias: str) -> bool:
+    if normalized_name == alias:
+        return True
+    return re.search(rf"(^|\s){re.escape(alias)}($|\s)", normalized_name) is not None
 
 
 def load_seed_payload(path: Path = SEED_PATH) -> List[Dict]:
