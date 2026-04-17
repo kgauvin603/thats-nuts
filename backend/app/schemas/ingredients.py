@@ -9,6 +9,8 @@ IngredientCheckStatus = Literal[
     "cannot_verify",
 ]
 IngredientConfidence = Literal["high", "medium", "possible"]
+DetectionBasis = Literal["common_name", "inci_name", "multiple"]
+MatchStrength = Literal["exact_alias", "phrase_match", "multiple_matches"]
 
 
 class AllergyProfile(BaseModel):
@@ -42,9 +44,14 @@ class MatchedIngredient(BaseModel):
     nut_source: str
     confidence: IngredientConfidence
     reason: str
+    detection_basis: Optional[DetectionBasis] = None
+    match_strength: Optional[MatchStrength] = None
+    review_recommended: Optional[bool] = None
 
 
 class IngredientCheckResponse(BaseModel):
     status: IngredientCheckStatus
     matched_ingredients: List[MatchedIngredient]
     explanation: str
+    ruleset_version: Optional[str] = None
+    unknown_terms: List[str] = Field(default_factory=list)

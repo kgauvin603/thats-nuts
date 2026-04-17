@@ -339,7 +339,7 @@ def test_lookup_product_route_returns_normalized_product():
     assert response.ingredient_text == "Caprylic/Capric Triglyceride, Prunus Amygdalus Dulcis Oil"
     assert response.assessment_result == "contains_nut_ingredient"
     assert len(response.matched_ingredients) == 1
-    assert "Matched 1 ingredient linked to nut allergy risk." in response.explanation
+    assert "Detected 1 nut-linked ingredient" in response.explanation
 
 
 def test_lookup_product_route_accepts_allergy_profile_without_breaking_clients():
@@ -413,16 +413,12 @@ def test_product_lookup_service_caches_provider_results_and_persists_assessment(
 
     assert first_response.found is True
     assert first_response.assessment_result == "no_nut_ingredient_found"
-    assert first_response.explanation == (
-        "Product data was returned by the configured stub provider. "
-        "No nut-derived ingredients were matched in the provided ingredient list."
-    )
+    assert "Product data was returned by the configured stub provider." in first_response.explanation
+    assert "No known nut-linked ingredients from ruleset" in first_response.explanation
     assert second_response.found is True
     assert second_response.assessment_result == "no_nut_ingredient_found"
-    assert second_response.explanation == (
-        "Product data was returned from the local product cache. "
-        "No nut-derived ingredients were matched in the provided ingredient list."
-    )
+    assert "Product data was returned from the local product cache." in second_response.explanation
+    assert "No known nut-linked ingredients from ruleset" in second_response.explanation
     assert len(products) == 1
     assert products[0].product_name == "Cache Product"
     assert len(scan_history) == 2
@@ -557,10 +553,9 @@ def test_enrich_product_route_persists_manual_ingredient_data_and_assessment(tem
     assert response.assessment_result == "contains_nut_ingredient"
     assert len(response.matched_ingredients) == 1
     assert response.matched_ingredients[0].nut_source == "almond"
-    assert response.explanation == (
-        "Product data was saved from a locally submitted ingredient list for this barcode. "
-        "Matched 1 ingredient linked to nut allergy risk."
-    )
+    assert "Product data was saved from a locally submitted ingredient list for this barcode." in response.explanation
+    assert "Detected 1 nut-linked ingredient" in response.explanation
+    assert response.ruleset_version == "2026.04.1"
     assert product is not None
     assert product.source == "text_scan"
     assert product.ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
@@ -593,10 +588,8 @@ def test_future_lookup_returns_saved_enriched_barcode_data(temp_database):
     assert lookup_response.product.source == "manual_entry"
     assert lookup_response.ingredient_text == "Water, Glycerin"
     assert lookup_response.assessment_result == "no_nut_ingredient_found"
-    assert lookup_response.explanation == (
-        "Product data was returned from the local barcode enrichment cache. "
-        "No nut-derived ingredients were matched in the provided ingredient list."
-    )
+    assert "Product data was returned from the local barcode enrichment cache." in lookup_response.explanation
+    assert "No known nut-linked ingredients from ruleset" in lookup_response.explanation
 
 
 def test_manual_enrichment_updates_cached_product_with_missing_ingredients(temp_database):

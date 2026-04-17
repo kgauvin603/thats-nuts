@@ -40,6 +40,8 @@ class ProductLookupResponse(BaseModel):
     assessment_result: Optional[IngredientCheckStatus] = None
     matched_ingredients: List[MatchedIngredient] = Field(default_factory=list)
     explanation: str
+    ruleset_version: Optional[str] = None
+    unknown_terms: List[str] = Field(default_factory=list)
 
 
 class SavedProductEntry(BaseModel):

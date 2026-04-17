@@ -93,6 +93,9 @@ def check_ingredient_text(
                         f'Known {match.key.replace("_", " ")}-derived ingredient '
                         f'matched by ruleset term(s): {", ".join(match.matched_terms)}.'
                     ),
+                    "detection_basis": match.detection_basis,
+                    "match_strength": match.match_strength,
+                    "review_recommended": match.review_recommended,
                 }
             )
         if ingredient_direct_matches:
@@ -120,14 +123,20 @@ def check_ingredient_text(
 
     if direct_matches:
         count = len(direct_matches)
+        matched_descriptions = ", ".join(
+            f'{match["original_text"]} ({match["nut_source"].replace("_", " ")})'
+            for match in direct_matches[:3]
+        )
         return {
             "status": CONTAINS_STATUS,
             "matched_ingredients": direct_matches,
             "explanation": (
-                f"Matched {count} ingredient linked to nut allergy risk."
+                f"Detected {count} nut-linked ingredient: {matched_descriptions}."
                 if count == 1
-                else f"Matched {count} ingredients linked to nut allergy risk."
+                else f"Detected {count} nut-linked ingredients: {matched_descriptions}."
             ),
+            "ruleset_version": detection_result.ruleset_version,
+            "unknown_terms": list(detection_result.unknown_terms),
         }
 
     if possible_matches:
@@ -140,6 +149,8 @@ def check_ingredient_text(
                 if count == 1
                 else f"Matched {count} ingredients that may be nut-derived or too generic to verify confidently."
             ),
+            "ruleset_version": detection_result.ruleset_version,
+            "unknown_terms": list(detection_result.unknown_terms),
         }
 
     if len(parsed) == unusable_count:
@@ -155,4 +166,6 @@ def check_ingredient_text(
             f"No known nut-linked ingredients from ruleset "
             f"{detection_result.ruleset_version} were detected in the provided ingredient list."
         ),
+        "ruleset_version": detection_result.ruleset_version,
+        "unknown_terms": list(detection_result.unknown_terms),
     }

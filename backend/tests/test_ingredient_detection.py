@@ -16,6 +16,9 @@ def test_detection_result_includes_ruleset_and_matches():
     assert len(result.matched_allergens) == 1
     assert result.matched_allergens[0].key == "walnut"
     assert "juglans regia" in result.matched_allergens[0].matched_terms
+    assert result.matched_allergens[0].detection_basis == "inci_name"
+    assert result.matched_allergens[0].match_strength == "multiple_matches"
+    assert result.matched_allergens[0].review_recommended is True
 
 
 def test_detects_multiline_walnut_input():
@@ -45,6 +48,7 @@ def test_clear_case_returns_structured_clear_result():
     assert result.detected is False
     assert result.status == "clear"
     assert result.matched_allergens == ()
+    assert result.unknown_terms == ()
 
 
 def test_regression_water_glycerin_and_juglans_regia_detects_walnut():
@@ -52,3 +56,21 @@ def test_regression_water_glycerin_and_juglans_regia_detects_walnut():
 
     assert result.detected is True
     assert {match.key for match in result.matched_allergens} == {"walnut"}
+
+
+def test_unknown_terms_surface_unmapped_ingredient_like_phrases():
+    result = detect_ingredient_text(
+        "Water, Glycerin, Orbignya Oleifera Seed Oil, Cetyl Alcohol"
+    )
+
+    assert result.detected is False
+    assert "orbignya oleifera seed oil" in result.unknown_terms
+    assert "glycerin" not in result.unknown_terms
+    assert "cetyl alcohol" not in result.unknown_terms
+
+
+def test_mapped_terms_do_not_appear_in_unknown_terms():
+    result = detect_ingredient_text("Water, Walnut Oil, Glycerin")
+
+    assert result.detected is True
+    assert "walnut oil" not in result.unknown_terms

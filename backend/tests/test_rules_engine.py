@@ -14,6 +14,11 @@ def test_detects_walnut_oil_common_name():
     assert result["status"] == "contains_nut_ingredient"
     assert len(result["matched_ingredients"]) == 1
     assert result["matched_ingredients"][0]["nut_source"] == "walnut"
+    assert result["matched_ingredients"][0]["detection_basis"] == "common_name"
+    assert result["matched_ingredients"][0]["match_strength"] == "multiple_matches"
+    assert result["matched_ingredients"][0]["review_recommended"] is False
+    assert result["ruleset_version"] == "2026.04.1"
+    assert result["unknown_terms"] == []
 
 
 def test_detects_walnut_oil_inci_name():
@@ -21,6 +26,7 @@ def test_detects_walnut_oil_inci_name():
     assert result["status"] == "contains_nut_ingredient"
     assert len(result["matched_ingredients"]) == 1
     assert result["matched_ingredients"][0]["nut_source"] == "walnut"
+    assert result["matched_ingredients"][0]["detection_basis"] == "inci_name"
 
 
 def test_normalizes_multiline_and_inci_prefixes():
@@ -41,12 +47,20 @@ def test_glycerin_only_does_not_match():
     result = check_ingredient_text("Glycerin")
     assert result["status"] == "no_nut_ingredient_found"
     assert result["matched_ingredients"] == []
+    assert result["unknown_terms"] == []
 
 
 def test_returns_no_match_for_simple_non_nut_list():
     result = check_ingredient_text("Water, Glycerin, Cetyl Alcohol, Fragrance")
     assert result["status"] == "no_nut_ingredient_found"
     assert result["matched_ingredients"] == []
+    assert result["unknown_terms"] == []
+
+
+def test_surfaces_unknown_terms_for_future_ruleset_expansion():
+    result = check_ingredient_text("Water, Orbignya Oleifera Seed Oil, Glycerin")
+    assert result["status"] == "no_nut_ingredient_found"
+    assert "orbignya oleifera seed oil" in result["unknown_terms"]
 
 
 def test_returns_possible_for_generic_oil_blend():
@@ -139,6 +153,8 @@ def test_response_model_accepts_possible_status():
             }
         ],
         explanation="Matched 1 ingredient that may be nut-derived or too generic to verify confidently.",
+        ruleset_version="2026.04.1",
+        unknown_terms=[],
     )
     assert response.status == "possible_nut_derived_ingredient"
 

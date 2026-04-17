@@ -391,6 +391,8 @@ class ProductLookupService:
                 ingredient_text=ingredient_text,
                 assessment_result=assessment["status"],
                 matched_ingredients=assessment["matched_ingredients"],
+                ruleset_version=assessment.get("ruleset_version"),
+                unknown_terms=assessment.get("unknown_terms", []),
                 explanation=self._build_assessment_explanation(
                     source_explanation=source_explanation,
                     coverage_status=product.ingredient_coverage_status,
@@ -417,6 +419,8 @@ class ProductLookupService:
             ingredient_text=ingredient_text,
             assessment_result=assessment["status"],
             matched_ingredients=[],
+            ruleset_version=assessment.get("ruleset_version"),
+            unknown_terms=assessment.get("unknown_terms", []),
             explanation=f"{source_explanation} {MISSING_INGREDIENTS_EXPLANATION}",
         )
 
