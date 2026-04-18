@@ -31,7 +31,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Focused on: Almond, Argan'), findsOneWidget);
-    expect(find.text('Enter Ingredients'), findsOneWidget);
+    expect(find.text('Almond, Argan'), findsOneWidget);
+    expect(find.text('Manual Ingredient Check'), findsOneWidget);
   });
 }

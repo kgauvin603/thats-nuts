@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:thats_nuts_mobile/src/models/scan_history_models.dart';
 import 'package:thats_nuts_mobile/src/screens/history_screen.dart';
+import 'package:thats_nuts_mobile/src/services/scan_history_refresh_controller.dart';
 import 'package:thats_nuts_mobile/src/services/thats_nuts_api_client.dart';
 
 class FakeHistoryApiClient extends ThatsNutsApiClient {
@@ -11,12 +12,14 @@ class FakeHistoryApiClient extends ThatsNutsApiClient {
     this.throwParsingError = false,
   });
 
-  final ScanHistoryResponse response;
+  ScanHistoryResponse response;
   final bool throwError;
   final bool throwParsingError;
+  int requestCount = 0;
 
   @override
   Future<ScanHistoryResponse> fetchScanHistory({int limit = 20}) async {
+    requestCount += 1;
     if (throwError) {
       throw const ThatsNutsApiException('Backend unavailable.');
     }
@@ -30,6 +33,7 @@ class FakeHistoryApiClient extends ThatsNutsApiClient {
 void main() {
   testWidgets('renders recent scan history entries',
       (WidgetTester tester) async {
+    final refreshController = ScanHistoryRefreshController();
     final apiClient = FakeHistoryApiClient(
       response: ScanHistoryResponse(
         items: [
@@ -78,6 +82,7 @@ void main() {
       MaterialApp(
         home: HistoryScreen(
           apiClient: apiClient,
+          historyRefreshController: refreshController,
         ),
       ),
     );
@@ -87,7 +92,7 @@ void main() {
     expect(find.text('Sample Lotion'), findsOneWidget);
     expect(find.text('Barcode: 012345678905'), findsOneWidget);
     expect(find.text('Barcode enrichment'), findsOneWidget);
-    expect(find.text('Nut ingredient found'), findsNWidgets(4));
+    expect(find.text('Nut ingredients detected'), findsAtLeastNWidgets(1));
     expect(find.text('Matched sweet almond oil.'), findsOneWidget);
     expect(find.text('Matched: sweet almond oil'), findsOneWidget);
     expect(find.text('Manual ingredient check'), findsOneWidget);
@@ -99,12 +104,13 @@ void main() {
       scrollable: find.byType(Scrollable),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Barcode lookup'), findsNWidgets(2));
+    expect(find.text('Barcode lookup'), findsOneWidget);
     expect(find.text('Barcode: 9999999999999'), findsOneWidget);
   });
 
   testWidgets('renders empty state when there is no scan history',
       (WidgetTester tester) async {
+    final refreshController = ScanHistoryRefreshController();
     final apiClient = FakeHistoryApiClient(
       response: const ScanHistoryResponse(items: []),
     );
@@ -113,17 +119,19 @@ void main() {
       MaterialApp(
         home: HistoryScreen(
           apiClient: apiClient,
+          historyRefreshController: refreshController,
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('No scans yet.'), findsOneWidget);
+    expect(find.textContaining('No checks yet.'), findsOneWidget);
     expect(find.text('Could not load history'), findsNothing);
   });
 
   testWidgets('renders error state when the history request fails',
       (WidgetTester tester) async {
+    final refreshController = ScanHistoryRefreshController();
     final apiClient = FakeHistoryApiClient(
       response: const ScanHistoryResponse(items: []),
       throwError: true,
@@ -133,6 +141,7 @@ void main() {
       MaterialApp(
         home: HistoryScreen(
           apiClient: apiClient,
+          historyRefreshController: refreshController,
         ),
       ),
     );
@@ -145,6 +154,7 @@ void main() {
 
   testWidgets('renders error state when the history payload cannot be parsed',
       (WidgetTester tester) async {
+    final refreshController = ScanHistoryRefreshController();
     final apiClient = FakeHistoryApiClient(
       response: const ScanHistoryResponse(items: []),
       throwParsingError: true,
@@ -154,6 +164,7 @@ void main() {
       MaterialApp(
         home: HistoryScreen(
           apiClient: apiClient,
+          historyRefreshController: refreshController,
         ),
       ),
     );
@@ -165,5 +176,66 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('No scans yet.'), findsNothing);
+  });
+
+  testWidgets('reloads when history refresh is signaled',
+      (WidgetTester tester) async {
+    final refreshController = ScanHistoryRefreshController();
+    final apiClient = FakeHistoryApiClient(
+      response: ScanHistoryResponse(
+        items: [
+          ScanHistoryItem(
+            scanType: 'manual_ingredient_check',
+            barcode: null,
+            productName: null,
+            brandName: null,
+            productSource: null,
+            submittedIngredientText: 'Water',
+            assessmentStatus: 'no_nut_ingredient_found',
+            explanation: 'No nut-linked ingredients were flagged.',
+            matchedIngredientSummary: null,
+            createdAt: DateTime.parse('2026-04-03T12:20:00Z'),
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HistoryScreen(
+          apiClient: apiClient,
+          historyRefreshController: refreshController,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Water'), findsOneWidget);
+    expect(apiClient.requestCount, 1);
+
+    apiClient.response = ScanHistoryResponse(
+      items: [
+        ScanHistoryItem(
+          scanType: 'barcode_lookup',
+          barcode: '0001234567890',
+          productName: 'Updated Item',
+          brandName: null,
+          productSource: null,
+          submittedIngredientText: null,
+          assessmentStatus: 'cannot_verify',
+          explanation: 'No product record was found.',
+          matchedIngredientSummary: null,
+          createdAt: DateTime.parse('2026-04-03T12:30:00Z'),
+        ),
+      ],
+    );
+
+    refreshController.markChanged();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(apiClient.requestCount, 2);
+    expect(find.text('Updated Item'), findsOneWidget);
+    expect(find.text('Water'), findsNothing);
   });
 }

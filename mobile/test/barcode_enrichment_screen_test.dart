@@ -4,6 +4,7 @@ import 'package:thats_nuts_mobile/src/models/allergy_profile.dart';
 import 'package:thats_nuts_mobile/src/models/ingredient_check_models.dart';
 import 'package:thats_nuts_mobile/src/models/product_lookup_models.dart';
 import 'package:thats_nuts_mobile/src/screens/barcode_enrichment_screen.dart';
+import 'package:thats_nuts_mobile/src/services/scan_history_refresh_controller.dart';
 import 'package:thats_nuts_mobile/src/services/thats_nuts_api_client.dart';
 
 class FakeBarcodeEnrichmentApiClient extends ThatsNutsApiClient {
@@ -16,6 +17,7 @@ class FakeBarcodeEnrichmentApiClient extends ThatsNutsApiClient {
   String? capturedIngredientText;
   String? capturedProductName;
   String? capturedBrandName;
+  String? capturedSource;
   AllergyProfile? capturedProfile;
 
   @override
@@ -31,6 +33,7 @@ class FakeBarcodeEnrichmentApiClient extends ThatsNutsApiClient {
     capturedIngredientText = ingredientText;
     capturedProductName = productName;
     capturedBrandName = brandName;
+    capturedSource = source;
     capturedProfile = allergyProfile;
     return response;
   }
@@ -70,6 +73,7 @@ void main() {
         home: BarcodeEnrichmentScreen(
           apiClient: apiClient,
           allergyProfile: const AllergyProfile(almond: true),
+          historyRefreshController: ScanHistoryRefreshController(),
           barcode: '9999999999999',
           initialProductName: 'Saved Product',
           initialBrandName: 'Saved Brand',
@@ -79,21 +83,21 @@ void main() {
 
     expect(find.text('Add Ingredients for This Barcode'), findsOneWidget);
     expect(find.text('9999999999999'), findsOneWidget);
-    expect(find.text('Save the label ingredients for future scans.'),
+    expect(find.text('Save ingredients for this barcode for future lookups.'),
         findsOneWidget);
     expect(
       find.text(
-        'On iPhone, use text scan right from the field.',
+        'Use the iPhone text scan control in the field if needed.',
       ),
       findsOneWidget,
     );
 
     await tester.enterText(
-      find.widgetWithText(TextField, 'Ingredient Text'),
+      find.widgetWithText(TextField, 'Ingredients'),
       'Water, Glycerin, Prunus Amygdalus Dulcis Oil',
     );
     final saveButton =
-        find.widgetWithText(FilledButton, 'Save Ingredients for This Barcode');
+        find.widgetWithText(FilledButton, 'Save Barcode Ingredients');
     await tester.scrollUntilVisible(
       saveButton,
       250,
@@ -110,8 +114,9 @@ void main() {
     );
     expect(apiClient.capturedProductName, 'Saved Product');
     expect(apiClient.capturedBrandName, 'Saved Brand');
+    expect(apiClient.capturedSource, 'manual_entry');
     expect(apiClient.capturedProfile?.almond, isTrue);
-    expect(find.text('Contains nut ingredient'), findsOneWidget);
+    expect(find.text('Nut ingredients detected'), findsAtLeastNWidgets(1));
     expect(find.text('Scan Again'), findsOneWidget);
   });
 }

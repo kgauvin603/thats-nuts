@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../brand.dart';
 import '../models/scan_history_models.dart';
+import '../services/scan_history_refresh_controller.dart';
 import '../services/thats_nuts_api_client.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({
     super.key,
     required this.apiClient,
+    required this.historyRefreshController,
   });
 
   static const routeName = '/history';
 
   final ThatsNutsApiClient apiClient;
+  final ScanHistoryRefreshController historyRefreshController;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -27,6 +30,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
+    widget.historyRefreshController.addListener(_handleHistoryChanged);
+    _loadHistory();
+  }
+
+  @override
+  void dispose() {
+    widget.historyRefreshController.removeListener(_handleHistoryChanged);
+    super.dispose();
+  }
+
+  void _handleHistoryChanged() {
+    if (!mounted) {
+      return;
+    }
     _loadHistory();
   }
 
@@ -81,7 +98,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       case 'no_nut_ingredient_found':
         return BrandColors.success;
       default:
-        return Theme.of(context).colorScheme.secondary;
+        return BrandColors.harvest;
     }
   }
 
@@ -101,13 +118,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _statusLabel(String status) {
     switch (status) {
       case 'contains_nut_ingredient':
-        return 'Nut ingredient found';
+        return 'Nut ingredients detected';
       case 'possible_nut_derived_ingredient':
-        return 'Possible nut-derived ingredient';
+        return 'Review ingredient list';
       case 'no_nut_ingredient_found':
-        return 'No nut ingredient found';
+        return 'No nut ingredients found';
       default:
         return 'Cannot verify';
+    }
+  }
+
+  IconData _statusIcon(String status) {
+    switch (status) {
+      case 'contains_nut_ingredient':
+        return Icons.warning_rounded;
+      case 'possible_nut_derived_ingredient':
+        return Icons.error_outline_rounded;
+      case 'no_nut_ingredient_found':
+        return Icons.check_circle_rounded;
+      default:
+        return Icons.help_outline_rounded;
     }
   }
 
@@ -136,10 +166,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return item.productName!;
     }
     if (item.scanType == 'barcode_enrichment') {
-      return 'Barcode enrichment';
+      return 'Saved barcode ingredients';
     }
-    if (item.scanType == 'barcode_lookup') {
-      return 'Barcode lookup';
+    if (item.scanType == 'barcode_lookup' && item.barcode != null) {
+      return 'Barcode ${item.barcode}';
     }
     return 'Manual ingredient check';
   }
@@ -156,7 +186,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           padding: const EdgeInsets.all(20),
           children: [
             Text(
-              'Recent ingredient checks and barcode lookups from the backend.',
+              'Recent checks from the backend.',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
@@ -194,7 +224,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    'No scans yet. Run a manual ingredient check or barcode lookup first.',
+                    'No checks yet. Run a manual ingredient check or barcode lookup first.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
@@ -221,28 +251,36 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Chip(
-                                        label:
-                                            Text(_scanTypeLabel(item.scanType)),
-                                        visualDensity: VisualDensity.compact,
+                                      Expanded(
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            Chip(
+                                              label: Text(
+                                                _scanTypeLabel(item.scanType),
+                                              ),
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      Chip(
-                                        label: Text(
-                                          _statusLabel(item.assessmentStatus),
-                                        ),
-                                        visualDensity: VisualDensity.compact,
-                                        backgroundColor: statusSurfaceColor,
-                                        side: BorderSide(
-                                          color: statusColor.withOpacity(0.22),
-                                        ),
-                                        labelStyle: TextStyle(
-                                          color: statusColor,
-                                          fontWeight: FontWeight.w800,
-                                        ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _formatCreatedAt(item.createdAt),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -256,7 +294,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           fontWeight: FontWeight.w800,
                                         ),
                                   ),
-                                  if (item.brandName != null) ...[
+                                  if (item.brandName != null &&
+                                      item.brandName!.trim().isNotEmpty) ...[
                                     const SizedBox(height: 4),
                                     Text(
                                       item.brandName!,
@@ -270,7 +309,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           ),
                                     ),
                                   ],
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 12),
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(14),
@@ -278,33 +317,53 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       color: statusSurfaceColor,
                                       borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                        color: statusColor.withOpacity(0.18),
+                                        color: statusColor.withOpacity(0.24),
+                                        width: 1.4,
                                       ),
                                     ),
-                                    child: Column(
+                                    child: Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          _statusLabel(item.assessmentStatus),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall
-                                              ?.copyWith(
-                                                color: statusColor,
-                                                fontWeight: FontWeight.w800,
-                                              ),
+                                        Icon(
+                                          _statusIcon(item.assessmentStatus),
+                                          color: statusColor,
                                         ),
-                                        if (item.explanation != null) ...[
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            item.explanation!,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(height: 1.35),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                _statusLabel(
+                                                  item.assessmentStatus,
+                                                ),
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .titleSmall
+                                                    ?.copyWith(
+                                                      color: statusColor,
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                    ),
+                                              ),
+                                              if (item.explanation != null &&
+                                                  item.explanation!
+                                                      .trim()
+                                                      .isNotEmpty) ...[
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  item.explanation!,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(height: 1.35),
+                                                ),
+                                              ],
+                                            ],
                                           ),
-                                        ],
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -320,34 +379,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           ),
                                     ),
                                   ],
-                                  if (item.submittedIngredientText != null &&
-                                      item.submittedIngredientText!
+                                  if (item.matchedIngredientSummary != null &&
+                                      item.matchedIngredientSummary!
                                           .trim()
                                           .isNotEmpty) ...[
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      item.submittedIngredientText!,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    'Checked: ${_formatCreatedAt(item.createdAt)}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                        ),
-                                  ),
-                                  if (item.matchedIngredientSummary !=
-                                      null) ...[
                                     const SizedBox(height: 8),
                                     Text(
                                       'Matched: ${item.matchedIngredientSummary}',
@@ -358,6 +393,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                             color: statusColor,
                                             fontWeight: FontWeight.w700,
                                           ),
+                                    ),
+                                  ],
+                                  if (item.submittedIngredientText != null &&
+                                      item.submittedIngredientText!
+                                          .trim()
+                                          .isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      item.submittedIngredientText!,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
                                 ],

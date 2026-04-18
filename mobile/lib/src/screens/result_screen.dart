@@ -104,7 +104,7 @@ class ResultScreen extends StatelessWidget {
       case 'no_nut_ingredient_found':
         return BrandColors.success;
       default:
-        return BrandColors.olive;
+        return BrandColors.harvest;
     }
   }
 
@@ -139,22 +139,22 @@ class ResultScreen extends StatelessWidget {
       case 'contains_nut_ingredient':
         return 'Avoid';
       case 'possible_nut_derived_ingredient':
-        return 'Use caution';
+        return 'Review';
       case 'no_nut_ingredient_found':
-        return 'Looks clear';
+        return 'Clear';
       default:
-        return 'Cannot confirm';
+        return 'Review first';
     }
   }
 
   String _statusLabel() {
     switch (resultStatus) {
       case 'contains_nut_ingredient':
-        return 'Contains nut ingredient';
+        return 'Nut ingredients detected';
       case 'possible_nut_derived_ingredient':
-        return 'Possible nut-derived ingredient';
+        return 'Review ingredient list';
       case 'no_nut_ingredient_found':
-        return 'No nut ingredient found';
+        return 'No nut ingredients found';
       default:
         return 'Cannot verify';
     }
@@ -163,26 +163,26 @@ class ResultScreen extends StatelessWidget {
   String _statusCaption() {
     switch (resultStatus) {
       case 'contains_nut_ingredient':
-        return 'A known nut-linked ingredient was matched.';
+        return 'A known nut-linked ingredient was found in the ingredient list.';
       case 'possible_nut_derived_ingredient':
         return 'At least one ingredient may be nut-derived or too generic to verify safely.';
       case 'no_nut_ingredient_found':
-        return 'The current ingredient list did not match any nut-linked rules.';
+        return 'The checked ingredient list did not match any nut-linked rules.';
       default:
-        return 'The ingredient data was missing, incomplete, or too vague to assess confidently.';
+        return 'The available ingredient data was missing, incomplete, or too vague to verify confidently.';
     }
   }
 
   String _statusActionHint() {
     switch (resultStatus) {
       case 'contains_nut_ingredient':
-        return 'Avoid this product unless you have separate confirmation it is safe for your allergy profile.';
+        return 'Avoid this product unless you have separate confirmation that it is safe.';
       case 'possible_nut_derived_ingredient':
         return 'Review the flagged ingredients carefully before using this product.';
       case 'no_nut_ingredient_found':
         return 'No nut-linked ingredients were flagged in the ingredient list that was checked.';
       default:
-        return 'Treat this result as incomplete and verify the full ingredient list before using the product.';
+        return 'Do not rely on this result alone. Check the full label or manufacturer information.';
     }
   }
 
@@ -229,7 +229,7 @@ class ResultScreen extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'This barcode was previously completed using manually captured ingredients.',
+              'This barcode was previously completed using manually entered ingredients.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     height: 1.4,
                   ),
@@ -728,6 +728,15 @@ class ResultScreen extends StatelessWidget {
                   label: 'Matched ingredients',
                   value: _matchSummary(),
                   icon: Icons.list_alt_rounded,
+                  backgroundColor: _statusSurfaceColor(),
+                  borderColor: _statusColor().withOpacity(0.14),
+                ),
+                const SizedBox(height: 10),
+                _labeledDetail(
+                  context: context,
+                  label: 'Next step',
+                  value: _statusActionHint(),
+                  icon: Icons.arrow_forward_rounded,
                   backgroundColor: _statusSurfaceColor(),
                   borderColor: _statusColor().withOpacity(0.14),
                 ),

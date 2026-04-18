@@ -45,10 +45,11 @@ void main() {
 
     expect(find.byKey(const Key('result-status-banner')), findsOneWidget);
     expect(find.text('AVOID'), findsOneWidget);
-    expect(find.text('Contains nut ingredient'), findsNWidgets(2));
+    expect(find.text('Nut ingredients detected'), findsNWidgets(2));
     expect(find.text('1 flagged ingredient'), findsNWidgets(2));
     expect(find.text('Quick Summary'), findsOneWidget);
     expect(find.text('What to do next'), findsOneWidget);
+    expect(find.text('Next step'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Product'),
       200,
@@ -100,12 +101,12 @@ void main() {
     );
 
     expect(find.byKey(const Key('result-status-banner')), findsOneWidget);
-    expect(find.text('CANNOT CONFIRM'), findsOneWidget);
-    expect(find.text('Cannot verify'), findsNWidgets(2));
+    expect(find.text('REVIEW FIRST'), findsOneWidget);
+    expect(find.text('Cannot verify'), findsAtLeastNWidgets(2));
     expect(find.text('What to do next'), findsOneWidget);
     expect(
       find.text(
-        'The ingredient data was missing, incomplete, or too vague to assess confidently.',
+        'The available ingredient data was missing, incomplete, or too vague to verify confidently.',
       ),
       findsOneWidget,
     );
@@ -193,7 +194,7 @@ void main() {
     expect(find.text('Manual Enrichment'), findsAtLeastNWidgets(1));
     expect(
       find.text(
-        'This barcode was previously completed using manually captured ingredients.',
+        'This barcode was previously completed using manually entered ingredients.',
       ),
       findsOneWidget,
     );

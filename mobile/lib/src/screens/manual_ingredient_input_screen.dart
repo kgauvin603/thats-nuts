@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/allergy_profile.dart';
+import '../services/scan_history_refresh_controller.dart';
 import '../services/thats_nuts_api_client.dart';
 import 'result_screen.dart';
 
@@ -9,12 +10,14 @@ class ManualIngredientInputScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.allergyProfile,
+    required this.historyRefreshController,
   });
 
   static const routeName = '/manual-input';
 
   final ThatsNutsApiClient apiClient;
   final AllergyProfile allergyProfile;
+  final ScanHistoryRefreshController historyRefreshController;
 
   @override
   State<ManualIngredientInputScreen> createState() =>
@@ -52,6 +55,7 @@ class _ManualIngredientInputScreenState
         ingredientText,
         allergyProfile: widget.allergyProfile,
       );
+      widget.historyRefreshController.markChanged();
       if (!mounted) {
         return;
       }
@@ -92,7 +96,7 @@ class _ManualIngredientInputScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Enter the ingredient list.',
+              'Paste or type the ingredient list.',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -111,7 +115,7 @@ class _ManualIngredientInputScreenState
                 minLines: null,
                 textAlignVertical: TextAlignVertical.top,
                 decoration: const InputDecoration(
-                  labelText: 'Ingredients',
+                  labelText: 'Ingredient List',
                   alignLabelWithHint: true,
                   hintText:
                       'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
@@ -121,7 +125,7 @@ class _ManualIngredientInputScreenState
             ),
             const SizedBox(height: 8),
             Text(
-              'On iPhone, use text scan right from the field.',
+              'Use the iPhone text scan control in the field if needed.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

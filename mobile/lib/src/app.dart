@@ -9,6 +9,7 @@ import 'screens/home_screen.dart';
 import 'screens/manual_ingredient_input_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/allergy_profile_store.dart';
+import 'services/scan_history_refresh_controller.dart';
 import 'services/thats_nuts_api_client.dart';
 import 'theme.dart';
 
@@ -26,6 +27,8 @@ class ThatsNutsApp extends StatefulWidget {
 
 class _ThatsNutsAppState extends State<ThatsNutsApp> {
   final ThatsNutsApiClient _apiClient = ThatsNutsApiClient();
+  final ScanHistoryRefreshController _historyRefreshController =
+      ScanHistoryRefreshController();
   AllergyProfile _allergyProfile = const AllergyProfile();
   bool _isLoadingProfile = true;
 
@@ -54,6 +57,12 @@ class _ThatsNutsAppState extends State<ThatsNutsApp> {
   }
 
   @override
+  void dispose() {
+    _historyRefreshController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_isLoadingProfile) {
       return MaterialApp(
@@ -73,6 +82,7 @@ class _ThatsNutsAppState extends State<ThatsNutsApp> {
       home: HomeScreen(
         apiClient: _apiClient,
         allergyProfile: _allergyProfile,
+        historyRefreshController: _historyRefreshController,
         onProfileSaved: _updateAllergyProfile,
       ),
       routes: {
@@ -80,17 +90,21 @@ class _ThatsNutsAppState extends State<ThatsNutsApp> {
             ManualIngredientInputScreen(
               apiClient: _apiClient,
               allergyProfile: _allergyProfile,
+              historyRefreshController: _historyRefreshController,
             ),
         BarcodeInputScreen.routeName: (context) => BarcodeInputScreen(
               apiClient: _apiClient,
               allergyProfile: _allergyProfile,
+              historyRefreshController: _historyRefreshController,
             ),
         BarcodeScannerScreen.routeName: (context) => BarcodeScannerScreen(
               apiClient: _apiClient,
               allergyProfile: _allergyProfile,
+              historyRefreshController: _historyRefreshController,
             ),
         HistoryScreen.routeName: (context) => HistoryScreen(
               apiClient: _apiClient,
+              historyRefreshController: _historyRefreshController,
             ),
         ProfileScreen.routeName: (context) => ProfileScreen(
               initialProfile: _allergyProfile,

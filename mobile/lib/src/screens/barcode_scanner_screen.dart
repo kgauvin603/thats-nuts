@@ -3,6 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/allergy_profile.dart';
 import '../models/product_lookup_models.dart';
+import '../services/scan_history_refresh_controller.dart';
 import '../services/thats_nuts_api_client.dart';
 import 'barcode_enrichment_screen.dart';
 import 'barcode_input_screen.dart';
@@ -13,6 +14,7 @@ class BarcodeScannerScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.allergyProfile,
+    required this.historyRefreshController,
     this.scannerPreview,
   });
 
@@ -20,6 +22,7 @@ class BarcodeScannerScreen extends StatefulWidget {
 
   final ThatsNutsApiClient apiClient;
   final AllergyProfile allergyProfile;
+  final ScanHistoryRefreshController historyRefreshController;
   final Widget? scannerPreview;
 
   @override
@@ -84,6 +87,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
         barcode,
         allergyProfile: widget.allergyProfile,
       );
+      widget.historyRefreshController.markChanged();
       if (!mounted) {
         return;
       }
@@ -130,6 +134,8 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                       builder: (context) => BarcodeEnrichmentScreen(
                         apiClient: widget.apiClient,
                         allergyProfile: widget.allergyProfile,
+                        historyRefreshController:
+                            widget.historyRefreshController,
                         barcode: barcode,
                         initialProductName: result.product?.productName,
                         initialBrandName: result.product?.brandName,
@@ -205,6 +211,8 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                           builder: (context) => BarcodeInputScreen(
                             apiClient: widget.apiClient,
                             allergyProfile: widget.allergyProfile,
+                            historyRefreshController:
+                                widget.historyRefreshController,
                           ),
                         ),
                       );
@@ -254,7 +262,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'After a successful scan, the app looks up the product and opens the result screen automatically.',
+                'The result opens automatically after a successful scan.',
                 style: textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
@@ -411,6 +419,8 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                                     builder: (context) => BarcodeInputScreen(
                                       apiClient: widget.apiClient,
                                       allergyProfile: widget.allergyProfile,
+                                      historyRefreshController:
+                                          widget.historyRefreshController,
                                     ),
                                   ),
                                 );
@@ -434,6 +444,8 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                         builder: (context) => BarcodeInputScreen(
                           apiClient: widget.apiClient,
                           allergyProfile: widget.allergyProfile,
+                          historyRefreshController:
+                              widget.historyRefreshController,
                         ),
                       ),
                     );

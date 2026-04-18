@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/allergy_profile.dart';
 import '../models/product_lookup_models.dart';
+import '../services/scan_history_refresh_controller.dart';
 import '../services/thats_nuts_api_client.dart';
 import 'barcode_enrichment_screen.dart';
 import 'barcode_scanner_screen.dart';
@@ -12,12 +13,14 @@ class BarcodeInputScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.allergyProfile,
+    required this.historyRefreshController,
   });
 
   static const routeName = '/barcode-input';
 
   final ThatsNutsApiClient apiClient;
   final AllergyProfile allergyProfile;
+  final ScanHistoryRefreshController historyRefreshController;
 
   @override
   State<BarcodeInputScreen> createState() => _BarcodeInputScreenState();
@@ -53,6 +56,7 @@ class _BarcodeInputScreenState extends State<BarcodeInputScreen> {
         barcode,
         allergyProfile: widget.allergyProfile,
       );
+      widget.historyRefreshController.markChanged();
       if (!mounted) {
         return;
       }
@@ -89,6 +93,8 @@ class _BarcodeInputScreenState extends State<BarcodeInputScreen> {
                       builder: (context) => BarcodeEnrichmentScreen(
                         apiClient: widget.apiClient,
                         allergyProfile: widget.allergyProfile,
+                        historyRefreshController:
+                            widget.historyRefreshController,
                         barcode: barcode,
                         initialProductName: result.product?.productName,
                         initialBrandName: result.product?.brandName,
@@ -113,7 +119,7 @@ class _BarcodeInputScreenState extends State<BarcodeInputScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Enter a UPC or EAN code to look up a product and assess its ingredients.',
+              'Enter a UPC or EAN barcode to check a product.',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -147,7 +153,7 @@ class _BarcodeInputScreenState extends State<BarcodeInputScreen> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _isSubmitting ? null : _submit,
-                child: Text(_isSubmitting ? 'Looking Up...' : 'Lookup Product'),
+                child: Text(_isSubmitting ? 'Looking Up...' : 'Lookup Barcode'),
               ),
             ),
             const SizedBox(height: 12),
@@ -162,6 +168,8 @@ class _BarcodeInputScreenState extends State<BarcodeInputScreen> {
                             builder: (context) => BarcodeScannerScreen(
                               apiClient: widget.apiClient,
                               allergyProfile: widget.allergyProfile,
+                              historyRefreshController:
+                                  widget.historyRefreshController,
                             ),
                           ),
                         );

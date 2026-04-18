@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/allergy_profile.dart';
+import '../services/scan_history_refresh_controller.dart';
 import '../services/thats_nuts_api_client.dart';
 import 'result_screen.dart';
 
@@ -9,6 +10,7 @@ class BarcodeEnrichmentScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.allergyProfile,
+    required this.historyRefreshController,
     required this.barcode,
     this.initialProductName,
     this.initialBrandName,
@@ -16,6 +18,7 @@ class BarcodeEnrichmentScreen extends StatefulWidget {
 
   final ThatsNutsApiClient apiClient;
   final AllergyProfile allergyProfile;
+  final ScanHistoryRefreshController historyRefreshController;
   final String barcode;
   final String? initialProductName;
   final String? initialBrandName;
@@ -69,8 +72,10 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
         ingredientText: ingredientText,
         productName: _productNameController.text,
         brandName: _brandNameController.text,
+        source: 'manual_entry',
         allergyProfile: widget.allergyProfile,
       );
+      widget.historyRefreshController.markChanged();
       if (!mounted) {
         return;
       }
@@ -115,7 +120,7 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Save the label ingredients for future scans.',
+                'Save ingredients for this barcode for future lookups.',
                 style: textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
@@ -166,7 +171,7 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
                         minLines: null,
                         textAlignVertical: TextAlignVertical.top,
                         decoration: const InputDecoration(
-                          labelText: 'Ingredient Text',
+                          labelText: 'Ingredients',
                           alignLabelWithHint: true,
                           hintText:
                               'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
@@ -176,7 +181,7 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'On iPhone, use text scan right from the field.',
+                      'Use the iPhone text scan control in the field if needed.',
                       style: textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -199,9 +204,7 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
                 child: FilledButton(
                   onPressed: _isSubmitting ? null : _submit,
                   child: Text(
-                    _isSubmitting
-                        ? 'Saving...'
-                        : 'Save Ingredients for This Barcode',
+                    _isSubmitting ? 'Saving...' : 'Save Barcode Ingredients',
                   ),
                 ),
               ),
