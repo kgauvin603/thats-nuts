@@ -1,3 +1,5 @@
+from typing import Optional
+
 from app.core.config import get_settings
 from app.services.product_lookup_providers.base import ProductLookupProvider, ProductLookupProviderSettings
 from app.services.product_lookup_providers.chain import ChainedProductLookupProvider
@@ -24,7 +26,7 @@ def build_provider_settings() -> ProductLookupProviderSettings:
 
 def build_product_lookup_provider(
     provider_name: str,
-    provider_settings: ProductLookupProviderSettings | None = None,
+    provider_settings: Optional[ProductLookupProviderSettings] = None,
 ) -> ProductLookupProvider:
     settings = provider_settings or build_provider_settings()
     if provider_name == StubProductLookupProvider.provider_name:
