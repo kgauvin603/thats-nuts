@@ -3,18 +3,22 @@ import pytest
 from sqlmodel import Session, select
 
 from app.api.routes.product_lookup import enrich_product, lookup_product
+from app.core.config import get_settings
 from app.db.session import get_engine
 from app.models import AllergyProfileRecord, Product, ScanHistory
 from app.schemas.ingredients import AllergyProfile
 from app.schemas.products import ProductEnrichmentRequest, ProductLookupRequest
 from app.services.product_lookup import (
+    ChainedProductLookupProvider,
     MockApiProductLookupProvider,
+    OpenBeautyFactsProductLookupProvider,
     OpenFoodFactsProductLookupProvider,
     ProductLookupProvider,
     ProductLookupProviderSettings,
     ProductLookupService,
     StubProductLookupProvider,
     build_product_lookup_provider,
+    get_product_lookup_service,
 )
 from app.services.persistence import prepare_persistence
 
@@ -155,6 +159,52 @@ def test_open_food_facts_provider_normalizes_provider_payload():
     assert "ingredients_text" in captured["params"]["fields"]
     assert captured["headers"]["User-Agent"] == "thats-nuts-tests/1.0 (test@example.com)"
     assert captured["timeout"] == 7.5
+
+
+def test_open_beauty_facts_provider_normalizes_provider_payload():
+    captured = {}
+
+    def fake_http_get(url, params, headers, timeout):
+        captured["url"] = url
+        captured["params"] = params
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return FakeHttpResponse(
+            {
+                "status": 1,
+                "product": {
+                    "code": "3701129800015",
+                    "product_name": "Nourishing Face Oil",
+                    "brands": "Beauty Brand",
+                    "ingredients_text_from_image": "Helianthus Annuus Seed Oil, Juglans Regia Seed Oil",
+                    "image_front_small_url": "https://images.openbeautyfacts.org/front-small.jpg",
+                },
+            }
+        )
+
+    provider = OpenBeautyFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_beauty_facts",
+            base_url="https://world.openbeautyfacts.org",
+            api_key="",
+            user_agent="thats-nuts-tests/1.0 (test@example.com)",
+            timeout_seconds=6.0,
+        ),
+        http_get=fake_http_get,
+    )
+
+    product = provider.lookup_by_barcode("3701129800015")
+
+    assert product is not None
+    assert product.barcode == "3701129800015"
+    assert product.product_name == "Nourishing Face Oil"
+    assert product.brand_name == "Beauty Brand"
+    assert product.ingredient_text == "Helianthus Annuus Seed Oil, Juglans Regia Seed Oil"
+    assert product.image_url == "https://images.openbeautyfacts.org/front-small.jpg"
+    assert product.ingredient_coverage_status == "complete"
+    assert product.source == "open_beauty_facts"
+    assert captured["url"] == "https://world.openbeautyfacts.org/api/v2/product/3701129800015"
+    assert "ingredients_text_from_image" in captured["params"]["fields"]
 
 
 def test_open_food_facts_provider_returns_none_when_product_is_missing():
@@ -326,7 +376,76 @@ def test_build_product_lookup_provider_supports_open_food_facts():
     assert isinstance(provider, OpenFoodFactsProductLookupProvider)
 
 
-def test_lookup_product_route_returns_normalized_product():
+def test_build_product_lookup_provider_supports_open_beauty_facts():
+    provider = build_product_lookup_provider(
+        "open_beauty_facts",
+        provider_settings=ProductLookupProviderSettings(
+            provider_name="open_beauty_facts",
+            base_url="https://world.openbeautyfacts.org",
+            beauty_base_url="https://world.openbeautyfacts.org",
+            food_base_url="https://world.openfoodfacts.org",
+        ),
+    )
+
+    assert isinstance(provider, OpenBeautyFactsProductLookupProvider)
+
+
+def test_build_product_lookup_provider_supports_beauty_then_food():
+    provider = build_product_lookup_provider(
+        "beauty_then_food",
+        provider_settings=ProductLookupProviderSettings(
+            provider_name="beauty_then_food",
+            base_url="https://world.openfoodfacts.org",
+            beauty_base_url="https://world.openbeautyfacts.org",
+            food_base_url="https://world.openfoodfacts.org",
+        ),
+    )
+
+    assert isinstance(provider, ChainedProductLookupProvider)
+
+
+def test_chained_provider_falls_back_from_beauty_to_food_for_usable_ingredients():
+    beauty_provider = StubProductLookupProvider(
+        products={
+            "2468": {
+                "barcode": "2468",
+                "brand_name": "Beauty Brand",
+                "product_name": "Beauty Hit Without Ingredients",
+                "image_url": None,
+                "ingredient_text": None,
+                "ingredient_coverage_status": "missing",
+                "source": "open_beauty_facts",
+            }
+        }
+    )
+    food_provider = StubProductLookupProvider(
+        products={
+            "2468": {
+                "barcode": "2468",
+                "brand_name": "Food Brand",
+                "product_name": "Fallback Product",
+                "image_url": None,
+                "ingredient_text": "Water, Glycerin, Juglans Regia Seed Oil",
+                "ingredient_coverage_status": "complete",
+                "source": "open_food_facts",
+            }
+        }
+    )
+
+    provider = ChainedProductLookupProvider((beauty_provider, food_provider))
+
+    product = provider.lookup_by_barcode("2468")
+
+    assert product is not None
+    assert product.source == "open_food_facts"
+    assert product.ingredient_text == "Water, Glycerin, Juglans Regia Seed Oil"
+    assert product.ingredient_coverage_status == "complete"
+
+
+def test_lookup_product_route_returns_normalized_product(monkeypatch):
+    monkeypatch.setenv("PRODUCT_LOOKUP_PROVIDER", "stub")
+    get_settings.cache_clear()
+    get_product_lookup_service.cache_clear()
     response = lookup_product(ProductLookupRequest(barcode="0001234567890"))
 
     assert response.found is True
@@ -342,7 +461,10 @@ def test_lookup_product_route_returns_normalized_product():
     assert "Detected 1 nut-linked ingredient" in response.explanation
 
 
-def test_lookup_product_route_accepts_allergy_profile_without_breaking_clients():
+def test_lookup_product_route_accepts_allergy_profile_without_breaking_clients(monkeypatch):
+    monkeypatch.setenv("PRODUCT_LOOKUP_PROVIDER", "stub")
+    get_settings.cache_clear()
+    get_product_lookup_service.cache_clear()
     response = lookup_product(
         ProductLookupRequest(
             barcode="0001234567890",

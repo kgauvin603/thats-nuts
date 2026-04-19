@@ -7,6 +7,7 @@ FastAPI backend for the Thats Nuts MVP.
 - `GET /health`
 - `POST /check-ingredients`
 - `POST /lookup-product`
+- `POST /enrich-product`
 - `GET /scan-history`
 - `GET /test-ui`
 
@@ -70,7 +71,13 @@ INSTALL_DEPS=true
 DATABASE_URL=sqlite:///./thatsnuts.db
 DATABASE_AUTO_CREATE=true
 DATABASE_SEED_DATA=true
-PRODUCT_LOOKUP_PROVIDER=stub
+PRODUCT_LOOKUP_PROVIDER=beauty_then_food
+PRODUCT_LOOKUP_BEAUTY_BASE_URL=https://world.openbeautyfacts.org
+PRODUCT_LOOKUP_FOOD_BASE_URL=https://world.openfoodfacts.org
+PRODUCT_LOOKUP_BASE_URL=https://world.openfoodfacts.org
+PRODUCT_LOOKUP_API_KEY=
+PRODUCT_LOOKUP_USER_AGENT="thats-nuts-backend/0.1 (contact@example.com)"
+PRODUCT_LOOKUP_TIMEOUT_SECONDS=5.0
 ```
 
 The app itself does not load dotenv files automatically. The helper script does.
@@ -117,7 +124,9 @@ APP_LOG_LEVEL=info
 DATABASE_URL=sqlite:///./thatsnuts.db
 DATABASE_AUTO_CREATE=true
 DATABASE_SEED_DATA=true
-PRODUCT_LOOKUP_PROVIDER=stub
+PRODUCT_LOOKUP_PROVIDER=beauty_then_food
+PRODUCT_LOOKUP_BEAUTY_BASE_URL=https://world.openbeautyfacts.org
+PRODUCT_LOOKUP_FOOD_BASE_URL=https://world.openfoodfacts.org
 ```
 
 For service operation, leave `APP_RELOAD=false`. Set `INSTALL_DEPS=false` in the unit once the environment is installed and stable.
@@ -182,8 +191,11 @@ The backend includes a small provider abstraction for barcode-based product look
 Provider configuration is environment-variable based so secrets stay out of source control:
 
 ```bash
-PRODUCT_LOOKUP_PROVIDER=stub
-PRODUCT_LOOKUP_BASE_URL=https://world.openfoodfacts.org
+PRODUCT_LOOKUP_PROVIDER=beauty_then_food
+PRODUCT_LOOKUP_BEAUTY_BASE_URL=https://world.openbeautyfacts.org
+PRODUCT_LOOKUP_FOOD_BASE_URL=https://world.openfoodfacts.org
+# Legacy alias for the food provider base URL:
+# PRODUCT_LOOKUP_BASE_URL=https://world.openfoodfacts.org
 PRODUCT_LOOKUP_API_KEY=
 PRODUCT_LOOKUP_USER_AGENT="thats-nuts-backend/0.1 (contact@example.com)"
 PRODUCT_LOOKUP_TIMEOUT_SECONDS=5.0
@@ -193,7 +205,17 @@ Current provider options:
 
 - `stub`
 - `mock_api`
+- `open_beauty_facts`
 - `open_food_facts`
+- `beauty_then_food`
+
+Production default behavior:
+
+- local cache first
+- Open Beauty Facts second
+- Open Food Facts third
+
+The chained provider prefers the first provider that returns usable ingredient data. If Open Beauty Facts returns a product shell without a usable ingredient list, the service falls through to Open Food Facts before caching the result.
 
 ## Demo barcodes
 
