@@ -20,7 +20,11 @@ void main() {
 
     await tester.tap(find.text('Almond'));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.scrollUntilVisible(
+      find.text('Argan'),
+      250,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Argan'));
     await tester.pumpAndSettle();

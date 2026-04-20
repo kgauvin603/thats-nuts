@@ -254,9 +254,9 @@ class ResultScreen extends StatelessWidget {
         border: Border.all(color: BrandColors.border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
+            color: Color(0x14000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -457,8 +457,7 @@ class ResultScreen extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon,
-              size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(icon, size: 18, color: BrandColors.acorn),
           const SizedBox(width: 8),
           Text(
             label,
@@ -761,6 +760,9 @@ class ResultScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: statusSurfaceColor,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: statusColor.withOpacity(0.14),
+                ),
               ),
               child: Text(
                 explanation,
@@ -782,6 +784,7 @@ class ResultScreen extends StatelessWidget {
                       color:
                           Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: BrandColors.border),
                     ),
                     child: Text(
                       resultStatus == 'no_nut_ingredient_found'

@@ -85,6 +85,8 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(kAppName),
@@ -100,14 +102,14 @@ class HomeScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             decoration: BoxDecoration(
               color: BrandColors.surface,
               borderRadius: BorderRadius.circular(28),
               gradient: const LinearGradient(
                 colors: [
-                  BrandColors.surface,
-                  BrandColors.mossy,
+                  BrandColors.surfaceAlt,
+                  BrandColors.panelAccent,
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -115,33 +117,44 @@ class HomeScreen extends StatelessWidget {
               border: Border.all(color: BrandColors.border),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x12000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 8),
+                  color: Color(0x14000000),
+                  blurRadius: 22,
+                  offset: Offset(0, 10),
                 ),
               ],
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const AcornMark(size: 54),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Check ingredients quickly.',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Scan a barcode, paste ingredients, or review recent checks.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              height: 1.35,
-                            ),
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: BrandColors.warmAccentGradient,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x16000000),
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
                       ),
                     ],
+                  ),
+                  child: const Center(
+                    child: AcornMark(size: 38),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Check labels quickly.',
+                  style: textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Identify nut ingredients in beauty, skincare, cosmetics — and packaged foods too.',
+                  style: textTheme.bodyMedium?.copyWith(
+                    height: 1.4,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -154,7 +167,15 @@ class HomeScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  const Icon(Icons.tune_rounded, size: 20),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: BrandColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.tune_rounded, size: 20),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -172,7 +193,12 @@ class HomeScreen extends StatelessWidget {
                           allergyProfile.hasSelections
                               ? allergyProfile.summary
                               : 'All supported nut-related ingredients',
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                         ),
                       ],
                     ),
@@ -197,27 +223,18 @@ class HomeScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
+              onPressed: () => _openManualCheck(context),
+              icon: const Icon(Icons.fact_check_rounded),
+              label: const Text('Enter Ingredients'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
               onPressed: () => _openBarcodeScanner(context),
               icon: const Icon(Icons.qr_code_scanner_rounded),
               label: const Text('Scan Barcode'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.tonalIcon(
-              onPressed: () => _openManualCheck(context),
-              icon: const Icon(Icons.fact_check_rounded),
-              label: const Text('Manual Ingredient Check'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => _openHistory(context),
-              icon: const Icon(Icons.history_rounded),
-              label: const Text('Recent History'),
             ),
           ),
           const SizedBox(height: 12),
@@ -227,6 +244,15 @@ class HomeScreen extends StatelessWidget {
               onPressed: () => _openBarcodeInput(context),
               icon: const Icon(Icons.keyboard_rounded),
               label: const Text('Enter Barcode Manually'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openHistory(context),
+              icon: const Icon(Icons.history_rounded),
+              label: const Text('Recent History'),
             ),
           ),
         ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../models/allergy_profile.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -56,31 +57,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Choose the nut-related ingredients you want the app to focus on.',
-                  style: theme.textTheme.titleMedium,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Choose the nut-related ingredients you want the app to focus on.',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _draftProfile.hasSelections
+                          ? 'Active profile: ${_draftProfile.summary}'
+                          : 'No profile selected. The backend will check across all supported nut-related ingredients.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _draftProfile.hasSelections
-                      ? 'Active profile: ${_draftProfile.summary}'
-                      : 'No profile selected. The backend will check across all supported nut-related ingredients.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ],
+              ),
             ),
           ),
           Expanded(
             child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               children: [
                 for (final field in AllergyProfile.fields)
-                  SwitchListTile(
-                    title: Text(field.label),
-                    value: _draftProfile.valueFor(field.key),
-                    onChanged: (value) => _setField(field.key, value),
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: SwitchListTile(
+                      title: Text(field.label),
+                      secondary: const Icon(Icons.eco_rounded),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      value: _draftProfile.valueFor(field.key),
+                      onChanged: (value) => _setField(field.key, value),
+                    ),
                   ),
               ],
             ),

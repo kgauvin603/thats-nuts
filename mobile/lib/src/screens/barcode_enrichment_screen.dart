@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../models/allergy_profile.dart';
 import '../services/scan_history_refresh_controller.dart';
 import '../services/thats_nuts_api_client.dart';
@@ -116,99 +117,119 @@ class _BarcodeEnrichmentScreenState extends State<BarcodeEnrichmentScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Save ingredients for this barcode for future lookups.',
-                style: textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.allergyProfile.hasSelections
-                    ? 'Profile: ${widget.allergyProfile.summary}'
-                    : 'Profile: checking all supported nut-related ingredients.',
-                style: textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-              InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Barcode',
-                  border: OutlineInputBorder(),
-                ),
-                child: SelectableText(
-                  widget.barcode,
-                  style: textTheme.bodyLarge,
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _productNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Product Name (Optional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _brandNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Brand (Optional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 280,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _ingredientController,
-                        expands: true,
-                        maxLines: null,
-                        minLines: null,
-                        textAlignVertical: TextAlignVertical.top,
-                        decoration: const InputDecoration(
-                          labelText: 'Ingredients',
-                          alignLabelWithHint: true,
-                          hintText:
-                              'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Save ingredients for this barcode for future lookups.',
+                    style: textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
-                    const SizedBox(height: 8),
+                    decoration: BoxDecoration(
+                      color: BrandColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: BrandColors.border),
+                    ),
+                    child: Text(
+                      widget.allergyProfile.hasSelections
+                          ? 'Profile: ${widget.allergyProfile.summary}'
+                          : 'Profile: checking all supported nut-related ingredients.',
+                      style: textTheme.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Barcode',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: SelectableText(
+                      widget.barcode,
+                      style: textTheme.bodyLarge,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _productNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Product Name (Optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _brandNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Brand (Optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 280,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _ingredientController,
+                            expands: true,
+                            maxLines: null,
+                            minLines: null,
+                            textAlignVertical: TextAlignVertical.top,
+                            decoration: const InputDecoration(
+                              labelText: 'Ingredients',
+                              alignLabelWithHint: true,
+                              hintText:
+                                  'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Use the iPhone text scan control in the field if needed.',
+                          style: textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 12),
                     Text(
-                      'Use the iPhone text scan control in the field if needed.',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      _errorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                     ),
                   ],
-                ),
-              ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _errorMessage!,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _isSubmitting ? null : _submit,
+                      child: Text(
+                        _isSubmitting
+                            ? 'Saving...'
+                            : 'Save Barcode Ingredients',
+                      ),
+                    ),
                   ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isSubmitting ? null : _submit,
-                  child: Text(
-                    _isSubmitting ? 'Saving...' : 'Save Barcode Ingredients',
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
       ),

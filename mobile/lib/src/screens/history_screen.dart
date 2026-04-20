@@ -176,6 +176,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Recent History'),
@@ -187,7 +189,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           children: [
             Text(
               'Recent checks from the backend.',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
             if (_isLoading)
@@ -260,12 +262,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           spacing: 8,
                                           runSpacing: 8,
                                           children: [
-                                            Chip(
-                                              label: Text(
-                                                _scanTypeLabel(item.scanType),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 7,
                                               ),
-                                              visualDensity:
-                                                  VisualDensity.compact,
+                                              decoration: BoxDecoration(
+                                                color: BrandColors.surfaceAlt,
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                                border: Border.all(
+                                                  color: BrandColors.border,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                _scanTypeLabel(item.scanType),
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
                                             ),
                                           ],
                                         ),

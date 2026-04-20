@@ -7,14 +7,14 @@ ThemeData buildThatsNutsTheme() {
     brightness: Brightness.light,
     primary: BrandColors.harvest,
     onPrimary: Colors.white,
-    secondary: BrandColors.olive,
+    secondary: BrandColors.bark,
     onSecondary: Colors.white,
     error: BrandColors.copper,
     onError: Colors.white,
     surface: BrandColors.surface,
     onSurface: BrandColors.ink,
     primaryContainer: BrandColors.honey,
-    onPrimaryContainer: Colors.white,
+    onPrimaryContainer: BrandColors.ink,
     secondaryContainer: BrandColors.mossy,
     onSecondaryContainer: BrandColors.ink,
     errorContainer: BrandColors.dangerSurface,
@@ -33,6 +33,10 @@ ThemeData buildThatsNutsTheme() {
     scaffoldBackgroundColor: BrandColors.background,
     canvasColor: BrandColors.background,
     textTheme: baseTextTheme.copyWith(
+      headlineSmall: baseTextTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.3,
+      ),
       headlineMedium: baseTextTheme.headlineMedium?.copyWith(
         fontWeight: FontWeight.w800,
         letterSpacing: -0.4,
@@ -49,7 +53,7 @@ ThemeData buildThatsNutsTheme() {
       ),
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
+      backgroundColor: BrandColors.background,
       foregroundColor: BrandColors.ink,
       elevation: 0,
       scrolledUnderElevation: 0,
@@ -66,7 +70,7 @@ ThemeData buildThatsNutsTheme() {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
         side: const BorderSide(color: BrandColors.border),
       ),
     ),
@@ -77,7 +81,7 @@ ThemeData buildThatsNutsTheme() {
         minimumSize: const Size.fromHeight(56),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
         ),
         textStyle: const TextStyle(
           fontWeight: FontWeight.w700,
@@ -85,14 +89,26 @@ ThemeData buildThatsNutsTheme() {
         ),
       ),
     ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: BrandColors.bark,
+        foregroundColor: Colors.white,
+        minimumSize: const Size.fromHeight(52),
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
+    ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: BrandColors.harvest,
+        foregroundColor: BrandColors.bark,
         minimumSize: const Size.fromHeight(56),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         side: const BorderSide(color: BrandColors.border, width: 1.2),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
         ),
         textStyle: const TextStyle(
           fontWeight: FontWeight.w700,
@@ -102,8 +118,15 @@ ThemeData buildThatsNutsTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: BrandColors.surface,
+      fillColor: BrandColors.surfaceAlt,
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      labelStyle: const TextStyle(
+        color: BrandColors.acorn,
+        fontWeight: FontWeight.w600,
+      ),
+      hintStyle: const TextStyle(
+        color: Color(0xFF8B7763),
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: BrandColors.border),
@@ -143,6 +166,28 @@ ThemeData buildThatsNutsTheme() {
       color: BrandColors.border,
       thickness: 1,
       space: 1,
+    ),
+    iconTheme: const IconThemeData(
+      color: BrandColors.acorn,
+    ),
+    listTileTheme: const ListTileThemeData(
+      iconColor: BrandColors.acorn,
+      textColor: BrandColors.ink,
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return Colors.white;
+        }
+        return BrandColors.surfaceAlt;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return BrandColors.harvest;
+        }
+        return BrandColors.border;
+      }),
+      trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
     ),
   );
 }

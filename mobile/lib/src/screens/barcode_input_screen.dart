@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../models/allergy_profile.dart';
 import '../models/product_lookup_models.dart';
 import '../services/scan_history_refresh_controller.dart';
@@ -109,75 +110,94 @@ class _BarcodeInputScreenState extends State<BarcodeInputScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Barcode Lookup'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Enter a UPC or EAN barcode to check a product.',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.allergyProfile.hasSelections
-                  ? 'Profile: ${widget.allergyProfile.summary}'
-                  : 'Profile: checking all supported nut-related ingredients.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _controller,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                hintText: '0001234567890',
-                labelText: 'Barcode',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _errorMessage!,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Enter a UPC or EAN barcode to check a product.',
+                  style: theme.textTheme.titleMedium,
                 ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _isSubmitting ? null : _submit,
-                child: Text(_isSubmitting ? 'Looking Up...' : 'Lookup Barcode'),
-              ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: BrandColors.surfaceAlt,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: BrandColors.border),
+                  ),
+                  child: Text(
+                    widget.allergyProfile.hasSelections
+                        ? 'Profile: ${widget.allergyProfile.summary}'
+                        : 'Profile: checking all supported nut-related ingredients.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _controller,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    hintText: '0001234567890',
+                    labelText: 'Barcode',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _errorMessage!,
+                    style: TextStyle(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _isSubmitting ? null : _submit,
+                    child: Text(
+                      _isSubmitting ? 'Looking Up...' : 'Lookup Barcode',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (context) => BarcodeScannerScreen(
+                                  apiClient: widget.apiClient,
+                                  allergyProfile: widget.allergyProfile,
+                                  historyRefreshController:
+                                      widget.historyRefreshController,
+                                ),
+                              ),
+                            );
+                          },
+                    child: const Text('Use Camera Scanner'),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: _isSubmitting
-                    ? null
-                    : () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) => BarcodeScannerScreen(
-                              apiClient: widget.apiClient,
-                              allergyProfile: widget.allergyProfile,
-                              historyRefreshController:
-                                  widget.historyRefreshController,
-                            ),
-                          ),
-                        );
-                      },
-                child: const Text('Use Camera Scanner'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

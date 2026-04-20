@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../models/allergy_profile.dart';
 import '../services/scan_history_refresh_controller.dart';
 import '../services/thats_nuts_api_client.dart';
@@ -86,69 +87,87 @@ class _ManualIngredientInputScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manual Ingredient Check'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Paste or type the ingredient list.',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.allergyProfile.hasSelections
-                  ? 'Profile: ${widget.allergyProfile.summary}'
-                  : 'Profile: checking all supported nut-related ingredients.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                expands: true,
-                maxLines: null,
-                minLines: null,
-                textAlignVertical: TextAlignVertical.top,
-                decoration: const InputDecoration(
-                  labelText: 'Ingredient List',
-                  alignLabelWithHint: true,
-                  hintText:
-                      'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
-                  border: OutlineInputBorder(),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Paste or type the ingredient list.',
+                  style: theme.textTheme.titleMedium,
                 ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Use the iPhone text scan control in the field if needed.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: BrandColors.surfaceAlt,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: BrandColors.border),
                   ),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _errorMessage!,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
+                  child: Text(
+                    widget.allergyProfile.hasSelections
+                        ? 'Profile: ${widget.allergyProfile.summary}'
+                        : 'Profile: checking all supported nut-related ingredients.',
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _isSubmitting ? null : _submit,
-                child:
-                    Text(_isSubmitting ? 'Checking...' : 'Check Ingredients'),
-              ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    expands: true,
+                    maxLines: null,
+                    minLines: null,
+                    textAlignVertical: TextAlignVertical.top,
+                    decoration: const InputDecoration(
+                      labelText: 'Ingredient List',
+                      alignLabelWithHint: true,
+                      hintText:
+                          'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Use the iPhone text scan control in the field if needed.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _errorMessage!,
+                    style: TextStyle(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _isSubmitting ? null : _submit,
+                    child: Text(
+                      _isSubmitting ? 'Checking...' : 'Check Ingredients',
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
