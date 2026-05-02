@@ -41,16 +41,19 @@ def build_product_lookup_provider(
         return OpenFoodFactsProductLookupProvider(
             settings=_copy_settings(settings, provider_name, settings.food_base_url or settings.base_url)
         )
-    if provider_name == ChainedProductLookupProvider.provider_name:
-        beauty_provider = build_product_lookup_provider(
-            OpenBeautyFactsProductLookupProvider.provider_name,
-            provider_settings=settings,
-        )
+    if provider_name in {
+        ChainedProductLookupProvider.provider_name,
+        ChainedProductLookupProvider.legacy_provider_name,
+    }:
         food_provider = build_product_lookup_provider(
             OpenFoodFactsProductLookupProvider.provider_name,
             provider_settings=settings,
         )
-        return ChainedProductLookupProvider((beauty_provider, food_provider))
+        beauty_provider = build_product_lookup_provider(
+            OpenBeautyFactsProductLookupProvider.provider_name,
+            provider_settings=settings,
+        )
+        return ChainedProductLookupProvider((food_provider, beauty_provider))
     raise ValueError(f"Unsupported product lookup provider: {provider_name}")
 
 

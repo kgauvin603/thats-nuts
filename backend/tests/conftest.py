@@ -11,6 +11,7 @@ def temp_database(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
     monkeypatch.setenv("DATABASE_AUTO_CREATE", "true")
     monkeypatch.setenv("DATABASE_SEED_DATA", "true")
+    monkeypatch.setenv("PRODUCT_LOOKUP_PROVIDER", "stub")
 
     get_product_lookup_service.cache_clear()
     get_engine.cache_clear()

@@ -30,7 +30,7 @@ def test_prepare_persistence_seeds_normalized_rule_tables(temp_database):
 
     with Session(get_engine()) as session:
         ingredient = session.exec(
-            select(Ingredient).where(Ingredient.normalized_name == "prunus amygdalus dulcis oil")
+            select(Ingredient).where(Ingredient.normalized_name == "almond oil")
         ).first()
         alias = session.exec(
             select(IngredientAlias).where(IngredientAlias.alias == "sweet almond oil")
@@ -40,7 +40,7 @@ def test_prepare_persistence_seeds_normalized_rule_tables(temp_database):
         ).first()
         legacy_mapping = session.exec(
             select(IngredientMapping).where(
-                IngredientMapping.normalized_name == "prunus amygdalus dulcis oil"
+                IngredientMapping.normalized_name == "almond oil"
             )
         ).first()
 

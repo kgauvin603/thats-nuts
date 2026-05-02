@@ -1,4 +1,6 @@
 from functools import lru_cache
+import logging
+import re
 from typing import Optional
 
 from app.schemas.ingredients import AllergyProfile
@@ -16,6 +18,7 @@ from app.services.product_lookup_providers import (
     build_product_lookup_provider,
     build_provider_settings,
 )
+from app.services.product_lookup_providers.chain import product_lookup_has_usable_ingredient_text
 from app.services.rules_engine import check_ingredient_text
 
 MISSING_INGREDIENTS_EXPLANATION = (
@@ -31,12 +34,15 @@ PROVIDER_FAILURE_EXPLANATION = (
     "reliable product data for this barcode. Try again in a moment or enter ingredients manually."
 )
 PRODUCT_NOT_FOUND_EXPLANATION = (
-    "No product record was found for this barcode in the local cache or from the configured "
-    "lookup provider."
+    "No usable product record was found for this barcode from Open Food Facts, Open Beauty "
+    "Facts, or the enrichment fallback."
 )
 MANUAL_ENRICHMENT_EXPLANATION = (
     "Product data was saved from a locally submitted ingredient list for this barcode."
 )
+ENRICHMENT_CACHE_SOURCES = {"manual_entry", "text_scan"}
+
+logger = logging.getLogger(__name__)
 
 
 class ProductLookupService:
@@ -48,62 +54,106 @@ class ProductLookupService:
         barcode: str,
         allergy_profile: Optional[AllergyProfile] = None,
     ) -> ProductLookupResponse:
-        product = get_cached_product(barcode)
-        if product:
-            return self._build_assessed_response(
-                product,
-                source_explanation=self._build_cached_source_explanation(product),
-                allergy_profile=allergy_profile,
-            )
+        normalized_barcode = normalize_barcode(barcode)
+        lookup_path = [f"normalized:{normalized_barcode}"]
+        logger.info("Barcode lookup: normalized barcode %s", normalized_barcode)
 
         try:
-            product = self.provider.lookup_by_barcode(barcode)
+            product = self.provider.lookup_by_barcode(normalized_barcode)
+            provider_failed = False
         except ProductLookupProviderError:
-            self._persist_unsuccessful_lookup(
-                barcode,
-                PROVIDER_FAILURE_EXPLANATION,
-                allergy_profile=allergy_profile,
+            logger.info(
+                "Barcode lookup: configured provider failed for normalized barcode %s",
+                normalized_barcode,
             )
-            return ProductLookupResponse(
-                found=False,
-                product=None,
-                ingredient_text=None,
-                assessment_result=None,
-                matched_ingredients=[],
-                explanation=PROVIDER_FAILURE_EXPLANATION,
-            )
+            product = None
+            provider_failed = True
         except Exception:
-            self._persist_unsuccessful_lookup(
-                barcode,
-                PROVIDER_FAILURE_EXPLANATION,
+            logger.info(
+                "Barcode lookup: configured provider failed unexpectedly for normalized barcode %s",
+                normalized_barcode,
+            )
+            product = None
+            provider_failed = True
+        lookup_path.extend(self._build_provider_lookup_path(product, provider_failed))
+        if product and product_lookup_has_usable_ingredient_text(product):
+            lookup_path.append("enrichment:skipped")
+            logger.info(
+                "Barcode lookup: enrichment not attempted for normalized barcode %s",
+                normalized_barcode,
+            )
+            logger.info(
+                "Barcode lookup: final provider/source selected %s for normalized barcode %s",
+                product.source,
+                normalized_barcode,
+            )
+            return self._build_assessed_response(
+                product,
+                source_explanation=f"Product data was returned by the configured {product.source} provider.",
                 allergy_profile=allergy_profile,
+                lookup_path=lookup_path,
             )
-            return ProductLookupResponse(
-                found=False,
-                product=None,
-                ingredient_text=None,
-                assessment_result=None,
-                matched_ingredients=[],
-                explanation=PROVIDER_FAILURE_EXPLANATION,
+
+        logger.info(
+            "Barcode lookup: enrichment attempted for normalized barcode %s",
+            normalized_barcode,
+        )
+        lookup_path.append("enrichment:attempted")
+        enrichment_product = get_cached_product(normalized_barcode)
+        if enrichment_product and product_lookup_has_usable_ingredient_text(enrichment_product):
+            logger.info(
+                "Barcode lookup: enrichment succeeded for normalized barcode %s",
+                normalized_barcode,
             )
-        if not product:
-            self._persist_unsuccessful_lookup(
-                barcode,
-                PRODUCT_NOT_FOUND_EXPLANATION,
+            lookup_path.append("enrichment:succeeded")
+            response_source = (
+                "enrichment"
+                if enrichment_product.source in ENRICHMENT_CACHE_SOURCES
+                else enrichment_product.source
+            )
+            logger.info(
+                "Barcode lookup: final provider/source selected %s for normalized barcode %s",
+                response_source,
+                normalized_barcode,
+            )
+            return self._build_assessed_response(
+                enrichment_product,
+                source_explanation=self._build_cached_source_explanation(enrichment_product),
                 allergy_profile=allergy_profile,
+                response_source=response_source,
+                lookup_path=lookup_path,
             )
-            return ProductLookupResponse(
-                found=False,
-                product=None,
-                ingredient_text=None,
-                assessment_result=None,
-                matched_ingredients=[],
-                explanation=PRODUCT_NOT_FOUND_EXPLANATION,
-            )
-        return self._build_assessed_response(
-            product,
-            source_explanation=f"Product data was returned by the configured {product.source} provider.",
+
+        logger.info(
+            "Barcode lookup: enrichment failed for normalized barcode %s",
+            normalized_barcode,
+        )
+        lookup_path.append("enrichment:failed")
+        logger.info(
+            "Barcode lookup: final provider/source selected not_found for normalized barcode %s",
+            normalized_barcode,
+        )
+        explanation = (
+            PROVIDER_FAILURE_EXPLANATION
+            if provider_failed and not isinstance(self.provider, ChainedProductLookupProvider)
+            else PRODUCT_NOT_FOUND_EXPLANATION
+        )
+        product_id = upsert_product(product) if product else None
+        self._persist_unsuccessful_lookup(
+            normalized_barcode,
+            explanation,
             allergy_profile=allergy_profile,
+            product_id=product_id,
+        )
+        return ProductLookupResponse(
+            found=False,
+            source="not_found",
+            lookup_path=lookup_path,
+            product=None,
+            ingredient_text=None,
+            assessment_result=None,
+            matched_ingredients=[],
+            explanation=explanation,
         )
 
     def enrich_barcode_with_ingredients(
@@ -115,12 +165,13 @@ class ProductLookupService:
         source: Optional[str] = None,
         allergy_profile: Optional[AllergyProfile] = None,
     ) -> ProductLookupResponse:
-        existing_product = get_cached_product(barcode)
+        normalized_barcode = normalize_barcode(barcode)
+        existing_product = get_cached_product(normalized_barcode)
         normalized_source = (source or "manual_entry").strip() or "manual_entry"
         cleaned_ingredient_text = ingredient_text.strip()
 
         product = NormalizedProduct(
-            barcode=barcode,
+            barcode=normalized_barcode,
             product_name=product_name or (existing_product.product_name if existing_product else None),
             brand_name=brand_name or (existing_product.brand_name if existing_product else None),
             image_url=existing_product.image_url if existing_product else None,
@@ -134,6 +185,7 @@ class ProductLookupService:
             source_explanation=MANUAL_ENRICHMENT_EXPLANATION,
             allergy_profile=allergy_profile,
             scan_type="barcode_enrichment",
+            response_source="enrichment",
         )
 
     def _build_assessed_response(
@@ -142,6 +194,8 @@ class ProductLookupService:
         source_explanation: str,
         allergy_profile: Optional[AllergyProfile] = None,
         scan_type: str = "barcode_lookup",
+        response_source: Optional[str] = None,
+        lookup_path: Optional[list[str]] = None,
     ) -> ProductLookupResponse:
         ingredient_text = product.ingredient_text
         product_id = upsert_product(product)
@@ -161,6 +215,8 @@ class ProductLookupService:
             )
             return ProductLookupResponse(
                 found=True,
+                source=response_source or product.source,
+                lookup_path=lookup_path or [],
                 product=product,
                 ingredient_text=ingredient_text,
                 assessment_result=assessment["status"],
@@ -189,6 +245,8 @@ class ProductLookupService:
         )
         return ProductLookupResponse(
             found=True,
+            source=response_source or product.source,
+            lookup_path=lookup_path or [],
             product=product,
             ingredient_text=ingredient_text,
             assessment_result=assessment["status"],
@@ -215,6 +273,7 @@ class ProductLookupService:
         barcode: str,
         explanation: str,
         allergy_profile: Optional[AllergyProfile] = None,
+        product_id: Optional[int] = None,
     ) -> None:
         persist_scan_result(
             "",
@@ -224,6 +283,7 @@ class ProductLookupService:
                 "explanation": explanation,
             },
             allergy_profile=allergy_profile,
+            product_id=product_id,
             scan_type="barcode_lookup",
             submitted_barcode=barcode,
         )
@@ -234,12 +294,60 @@ class ProductLookupService:
             return "Product data was returned from the local barcode enrichment cache."
         return "Product data was returned from the local product cache."
 
+    def _build_provider_lookup_path(
+        self,
+        product: Optional[NormalizedProduct],
+        provider_failed: bool,
+    ) -> list[str]:
+        provider_names = self._provider_names()
+        path = []
+
+        if provider_failed or product is None or not product_lookup_has_usable_ingredient_text(product):
+            for provider_name in provider_names:
+                path.extend((f"{provider_name}:attempted", f"{provider_name}:failed"))
+            return path
+
+        product_source = product.source
+        for index, provider_name in enumerate(provider_names):
+            path.append(f"{provider_name}:attempted")
+            if provider_name == product_source:
+                path.append(f"{provider_name}:succeeded")
+                for skipped_provider in provider_names[index + 1 :]:
+                    path.append(f"{skipped_provider}:skipped")
+                return path
+            path.append(f"{provider_name}:failed")
+
+        return path
+
+    def _provider_names(self) -> list[str]:
+        if isinstance(self.provider, ChainedProductLookupProvider):
+            return [provider.provider_name for provider in self.provider.providers]
+        return [self.provider.provider_name]
+
 
 @lru_cache(maxsize=1)
 def get_product_lookup_service() -> ProductLookupService:
     provider_settings = build_provider_settings()
     provider = build_product_lookup_provider(
-        provider_settings.provider_name,
+        _barcode_lookup_provider_name(provider_settings.provider_name),
         provider_settings=provider_settings,
     )
     return ProductLookupService(provider)
+
+
+def _barcode_lookup_provider_name(provider_name: str) -> str:
+    if provider_name in {
+        OpenFoodFactsProductLookupProvider.provider_name,
+        OpenBeautyFactsProductLookupProvider.provider_name,
+        ChainedProductLookupProvider.legacy_provider_name,
+    }:
+        return ChainedProductLookupProvider.provider_name
+    return provider_name
+
+
+def normalize_barcode(barcode: str) -> str:
+    trimmed = barcode.strip()
+    if re.search(r"[A-Za-z]", trimmed):
+        return trimmed
+    normalized = re.sub(r"\D+", "", trimmed)
+    return normalized or trimmed

@@ -71,7 +71,7 @@ INSTALL_DEPS=true
 DATABASE_URL=sqlite:///./thatsnuts.db
 DATABASE_AUTO_CREATE=true
 DATABASE_SEED_DATA=true
-PRODUCT_LOOKUP_PROVIDER=beauty_then_food
+PRODUCT_LOOKUP_PROVIDER=food_then_beauty
 PRODUCT_LOOKUP_BEAUTY_BASE_URL=https://world.openbeautyfacts.org
 PRODUCT_LOOKUP_FOOD_BASE_URL=https://world.openfoodfacts.org
 PRODUCT_LOOKUP_BASE_URL=https://world.openfoodfacts.org
@@ -207,15 +207,17 @@ Current provider options:
 - `mock_api`
 - `open_beauty_facts`
 - `open_food_facts`
-- `beauty_then_food`
+- `food_then_beauty`
+- `beauty_then_food` (legacy alias for `food_then_beauty`)
 
 Production default behavior:
 
-- local cache first
+- normalize the submitted barcode
+- Open Food Facts first
 - Open Beauty Facts second
-- Open Food Facts third
+- saved manual/text-scan enrichment data only as the final fallback
 
-The chained provider prefers the first provider that returns usable ingredient data. If Open Beauty Facts returns a product shell without a usable ingredient list, the service falls through to Open Food Facts before caching the result.
+The chained provider returns the first provider result with usable ingredient data. If Open Food Facts does not return usable ingredients, the service falls through to Open Beauty Facts before considering saved enrichment data.
 
 ## Demo barcodes
 

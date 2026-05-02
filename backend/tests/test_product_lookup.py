@@ -7,7 +7,7 @@ from app.core.config import get_settings
 from app.db.session import get_engine
 from app.models import AllergyProfileRecord, Product, ScanHistory
 from app.schemas.ingredients import AllergyProfile
-from app.schemas.products import ProductEnrichmentRequest, ProductLookupRequest
+from app.schemas.products import NormalizedProduct, ProductEnrichmentRequest, ProductLookupRequest
 from app.services.product_lookup import (
     ChainedProductLookupProvider,
     MockApiProductLookupProvider,
@@ -27,6 +27,46 @@ class FailingProductLookupProvider(ProductLookupProvider):
     provider_name = "failing"
 
     def lookup_by_barcode(self, barcode: str):
+        raise RuntimeError("provider unavailable")
+
+
+_DEFAULT_PRODUCT = object()
+
+
+class RecordingProductLookupProvider(ProductLookupProvider):
+    def __init__(self, provider_name: str, product: dict | None | object = _DEFAULT_PRODUCT):
+        self.provider_name = provider_name
+        self.product = product
+        self.calls = []
+
+    def lookup_by_barcode(self, barcode: str):
+        self.calls.append(barcode)
+        if self.product is None:
+            return None
+        return self._normalized_product(barcode)
+
+    def _normalized_product(self, barcode: str):
+        payload = {
+            "barcode": barcode,
+            "brand_name": f"{self.provider_name} Brand",
+            "product_name": f"{self.provider_name} Product",
+            "image_url": None,
+            "ingredient_text": "Water, Glycerin",
+            "ingredient_coverage_status": "complete",
+            "source": self.provider_name,
+        }
+        if self.product is not _DEFAULT_PRODUCT:
+            payload.update(self.product)
+        return NormalizedProduct(**payload)
+
+
+class ErrorRecordingProductLookupProvider(ProductLookupProvider):
+    def __init__(self, provider_name: str):
+        self.provider_name = provider_name
+        self.calls = []
+
+    def lookup_by_barcode(self, barcode: str):
+        self.calls.append(barcode)
         raise RuntimeError("provider unavailable")
 
 
@@ -79,9 +119,16 @@ def test_product_lookup_service_returns_not_found_response():
     assert result.assessment_result is None
     assert result.matched_ingredients == []
     assert result.explanation == (
-        "No product record was found for this barcode in the local cache or from the configured "
-        "lookup provider."
+        "No usable product record was found for this barcode from Open Food Facts, Open Beauty "
+        "Facts, or the enrichment fallback."
     )
+    assert result.lookup_path == [
+        "normalized:99999",
+        "stub:attempted",
+        "stub:failed",
+        "enrichment:attempted",
+        "enrichment:failed",
+    ]
 
 
 def test_mock_provider_normalizes_provider_payload():
@@ -390,7 +437,25 @@ def test_build_product_lookup_provider_supports_open_beauty_facts():
     assert isinstance(provider, OpenBeautyFactsProductLookupProvider)
 
 
-def test_build_product_lookup_provider_supports_beauty_then_food():
+def test_build_product_lookup_provider_supports_food_then_beauty():
+    provider = build_product_lookup_provider(
+        "food_then_beauty",
+        provider_settings=ProductLookupProviderSettings(
+            provider_name="food_then_beauty",
+            base_url="https://world.openfoodfacts.org",
+            beauty_base_url="https://world.openbeautyfacts.org",
+            food_base_url="https://world.openfoodfacts.org",
+        ),
+    )
+
+    assert isinstance(provider, ChainedProductLookupProvider)
+    assert [item.provider_name for item in provider.providers] == [
+        "open_food_facts",
+        "open_beauty_facts",
+    ]
+
+
+def test_build_product_lookup_provider_supports_legacy_beauty_then_food_alias():
     provider = build_product_lookup_provider(
         "beauty_then_food",
         provider_settings=ProductLookupProviderSettings(
@@ -402,44 +467,171 @@ def test_build_product_lookup_provider_supports_beauty_then_food():
     )
 
     assert isinstance(provider, ChainedProductLookupProvider)
+    assert [item.provider_name for item in provider.providers] == [
+        "open_food_facts",
+        "open_beauty_facts",
+    ]
 
 
-def test_chained_provider_falls_back_from_beauty_to_food_for_usable_ingredients():
-    beauty_provider = StubProductLookupProvider(
-        products={
-            "2468": {
-                "barcode": "2468",
-                "brand_name": "Beauty Brand",
-                "product_name": "Beauty Hit Without Ingredients",
-                "image_url": None,
-                "ingredient_text": None,
-                "ingredient_coverage_status": "missing",
-                "source": "open_beauty_facts",
-            }
-        }
+def test_runtime_service_maps_single_open_facts_provider_to_food_then_beauty_chain(monkeypatch):
+    monkeypatch.setenv("PRODUCT_LOOKUP_PROVIDER", "open_food_facts")
+    get_settings.cache_clear()
+    get_product_lookup_service.cache_clear()
+
+    service = get_product_lookup_service()
+
+    assert isinstance(service.provider, ChainedProductLookupProvider)
+    assert [item.provider_name for item in service.provider.providers] == [
+        "open_food_facts",
+        "open_beauty_facts",
+    ]
+
+    get_product_lookup_service.cache_clear()
+    get_settings.cache_clear()
+
+
+def test_barcode_lookup_open_food_facts_success_does_not_call_enrichment():
+    food_provider = RecordingProductLookupProvider("open_food_facts")
+    beauty_provider = RecordingProductLookupProvider("open_beauty_facts")
+    provider = ChainedProductLookupProvider((food_provider, beauty_provider))
+    service = ProductLookupService(provider)
+
+    response = service.lookup_by_barcode(" 737-628-064502 ")
+
+    assert response.found is True
+    assert response.source == "open_food_facts"
+    assert response.lookup_path == [
+        "normalized:737628064502",
+        "open_food_facts:attempted",
+        "open_food_facts:succeeded",
+        "open_beauty_facts:skipped",
+        "enrichment:skipped",
+    ]
+    assert response.product is not None
+    assert response.product.source == "open_food_facts"
+    assert food_provider.calls == ["737628064502"]
+    assert beauty_provider.calls == []
+
+
+def test_barcode_lookup_food_failure_then_beauty_success_does_not_call_enrichment():
+    food_provider = RecordingProductLookupProvider("open_food_facts", product=None)
+    beauty_provider = RecordingProductLookupProvider("open_beauty_facts")
+    provider = ChainedProductLookupProvider((food_provider, beauty_provider))
+    service = ProductLookupService(provider)
+
+    response = service.lookup_by_barcode(" 3701129800015 ")
+
+    assert response.found is True
+    assert response.source == "open_beauty_facts"
+    assert response.lookup_path == [
+        "normalized:3701129800015",
+        "open_food_facts:attempted",
+        "open_food_facts:failed",
+        "open_beauty_facts:attempted",
+        "open_beauty_facts:succeeded",
+        "enrichment:skipped",
+    ]
+    assert response.product is not None
+    assert response.product.source == "open_beauty_facts"
+    assert food_provider.calls == ["3701129800015"]
+    assert beauty_provider.calls == ["3701129800015"]
+
+
+def test_barcode_lookup_food_error_then_beauty_success_does_not_call_enrichment():
+    food_provider = ErrorRecordingProductLookupProvider("open_food_facts")
+    beauty_provider = RecordingProductLookupProvider("open_beauty_facts")
+    provider = ChainedProductLookupProvider((food_provider, beauty_provider))
+    service = ProductLookupService(provider)
+
+    response = service.lookup_by_barcode("3701129800015")
+
+    assert response.found is True
+    assert response.source == "open_beauty_facts"
+    assert response.lookup_path == [
+        "normalized:3701129800015",
+        "open_food_facts:attempted",
+        "open_food_facts:failed",
+        "open_beauty_facts:attempted",
+        "open_beauty_facts:succeeded",
+        "enrichment:skipped",
+    ]
+    assert food_provider.calls == ["3701129800015"]
+    assert beauty_provider.calls == ["3701129800015"]
+
+
+def test_barcode_lookup_source_failures_call_enrichment_cache(temp_database):
+    assert prepare_persistence() is True
+
+    service = ProductLookupService(
+        ChainedProductLookupProvider(
+            (
+                RecordingProductLookupProvider("open_food_facts", product=None),
+                RecordingProductLookupProvider("open_beauty_facts", product=None),
+            )
+        )
     )
-    food_provider = StubProductLookupProvider(
-        products={
-            "2468": {
-                "barcode": "2468",
-                "brand_name": "Food Brand",
-                "product_name": "Fallback Product",
-                "image_url": None,
-                "ingredient_text": "Water, Glycerin, Juglans Regia Seed Oil",
-                "ingredient_coverage_status": "complete",
-                "source": "open_food_facts",
-            }
-        }
+    service.enrich_barcode_with_ingredients(
+        "737628064502",
+        "Water, Glycerin, Prunus Amygdalus Dulcis Oil",
+        source="manual_entry",
     )
 
-    provider = ChainedProductLookupProvider((beauty_provider, food_provider))
+    response = service.lookup_by_barcode("737628064502")
 
-    product = provider.lookup_by_barcode("2468")
+    assert response.found is True
+    assert response.source == "enrichment"
+    assert response.lookup_path == [
+        "normalized:737628064502",
+        "open_food_facts:attempted",
+        "open_food_facts:failed",
+        "open_beauty_facts:attempted",
+        "open_beauty_facts:failed",
+        "enrichment:attempted",
+        "enrichment:succeeded",
+    ]
+    assert response.product is not None
+    assert response.product.source == "manual_entry"
+    assert response.ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
 
-    assert product is not None
-    assert product.source == "open_food_facts"
-    assert product.ingredient_text == "Water, Glycerin, Juglans Regia Seed Oil"
-    assert product.ingredient_coverage_status == "complete"
+
+def test_barcode_lookup_failed_enrichment_returns_clean_not_found_response():
+    service = ProductLookupService(
+        ChainedProductLookupProvider(
+            (
+                RecordingProductLookupProvider("open_food_facts", product=None),
+                RecordingProductLookupProvider("open_beauty_facts", product=None),
+            )
+        )
+    )
+
+    response = service.lookup_by_barcode("0000000000000")
+
+    assert response.found is False
+    assert response.source == "not_found"
+    assert response.lookup_path == [
+        "normalized:0000000000000",
+        "open_food_facts:attempted",
+        "open_food_facts:failed",
+        "open_beauty_facts:attempted",
+        "open_beauty_facts:failed",
+        "enrichment:attempted",
+        "enrichment:failed",
+    ]
+    assert response.product is None
+    assert response.ingredient_text is None
+    assert response.assessment_result is None
+    assert response.matched_ingredients == []
+
+
+def test_barcode_normalization_happens_before_provider_lookup():
+    food_provider = RecordingProductLookupProvider("open_food_facts", product=None)
+    beauty_provider = RecordingProductLookupProvider("open_beauty_facts", product=None)
+    service = ProductLookupService(ChainedProductLookupProvider((food_provider, beauty_provider)))
+
+    service.lookup_by_barcode(" 0-001234567890 ")
+
+    assert food_provider.calls == ["0001234567890"]
+    assert beauty_provider.calls == ["0001234567890"]
 
 
 def test_lookup_product_route_returns_normalized_product(monkeypatch):
@@ -539,7 +731,7 @@ def test_product_lookup_service_caches_provider_results_and_persists_assessment(
     assert "No known nut-linked ingredients from ruleset" in first_response.explanation
     assert second_response.found is True
     assert second_response.assessment_result == "no_nut_ingredient_found"
-    assert "Product data was returned from the local product cache." in second_response.explanation
+    assert "Product data was returned by the configured stub provider." in second_response.explanation
     assert "No known nut-linked ingredients from ruleset" in second_response.explanation
     assert len(products) == 1
     assert products[0].product_name == "Cache Product"
@@ -589,7 +781,7 @@ def test_product_lookup_service_persists_allergy_profile_for_barcode_scan(temp_d
     assert allergy_profiles[0].almond is False
 
 
-def test_product_lookup_service_returns_cannot_verify_when_ingredients_are_missing(temp_database):
+def test_product_lookup_service_returns_not_found_when_provider_ingredients_are_missing(temp_database):
     assert prepare_persistence() is True
 
     service = ProductLookupService(
@@ -614,15 +806,15 @@ def test_product_lookup_service_returns_cannot_verify_when_ingredients_are_missi
         product = session.exec(select(Product).where(Product.barcode == "654")).first()
         scan_history = session.exec(select(ScanHistory).where(ScanHistory.product_id == product.id)).all()
 
-    assert response.found is True
-    assert response.product is not None
+    assert response.found is False
+    assert response.source == "not_found"
+    assert response.product is None
     assert response.ingredient_text is None
-    assert response.assessment_result == "cannot_verify"
+    assert response.assessment_result is None
     assert response.matched_ingredients == []
     assert response.explanation == (
-        "Product data was returned by the configured stub provider. "
-        "A product record was found, but it did not include a usable ingredient list. This product "
-        "cannot be verified until a full ingredient list is available."
+        "No usable product record was found for this barcode from Open Food Facts, Open Beauty "
+        "Facts, or the enrichment fallback."
     )
     assert product is not None
     assert len(scan_history) == 1
@@ -744,8 +936,8 @@ def test_manual_enrichment_updates_cached_product_with_missing_ingredients(temp_
     with Session(get_engine()) as session:
         product = session.exec(select(Product).where(Product.barcode == "654")).first()
 
-    assert initial_lookup.found is True
-    assert initial_lookup.assessment_result == "cannot_verify"
+    assert initial_lookup.found is False
+    assert initial_lookup.assessment_result is None
     assert enriched_lookup.found is True
     assert enriched_lookup.assessment_result == "contains_nut_ingredient"
     assert len(enriched_lookup.matched_ingredients) == 1

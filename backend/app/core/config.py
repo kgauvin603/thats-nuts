@@ -13,7 +13,7 @@ class Settings(BaseModel):
     database_echo: bool = False
     database_auto_create: bool = True
     database_seed_data: bool = True
-    product_lookup_provider: str = "beauty_then_food"
+    product_lookup_provider: str = "food_then_beauty"
     product_lookup_beauty_base_url: str = "https://world.openbeautyfacts.org"
     product_lookup_food_base_url: str = "https://world.openfoodfacts.org"
     product_lookup_api_key: str = ""
@@ -39,7 +39,7 @@ def get_settings() -> Settings:
         database_echo=_read_bool_env("DATABASE_ECHO", False),
         database_auto_create=_read_bool_env("DATABASE_AUTO_CREATE", True),
         database_seed_data=_read_bool_env("DATABASE_SEED_DATA", True),
-        product_lookup_provider=os.getenv("PRODUCT_LOOKUP_PROVIDER", "beauty_then_food"),
+        product_lookup_provider=os.getenv("PRODUCT_LOOKUP_PROVIDER", "food_then_beauty"),
         product_lookup_beauty_base_url=os.getenv(
             "PRODUCT_LOOKUP_BEAUTY_BASE_URL",
             "https://world.openbeautyfacts.org",

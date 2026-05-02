@@ -80,7 +80,7 @@ def test_recent_scan_history_includes_unsuccessful_barcode_lookups(temp_database
 
     assert len(response.items) == 1
     item = response.items[0]
-    assert item.scan_type == "barcode_enrichment"
+    assert item.scan_type == "barcode_lookup"
     assert item.barcode == "9999999999999"
     assert item.product_name is None
     assert item.brand_name is None
@@ -88,8 +88,8 @@ def test_recent_scan_history_includes_unsuccessful_barcode_lookups(temp_database
     assert item.submitted_ingredient_text is None
     assert item.assessment_status == "cannot_verify"
     assert item.explanation == (
-        "No product record was found for this barcode in the local cache or from the configured "
-        "lookup provider."
+        "No usable product record was found for this barcode from Open Food Facts, Open Beauty "
+        "Facts, or the enrichment fallback."
     )
 
 
@@ -110,7 +110,7 @@ def test_recent_scan_history_marks_manual_barcode_enrichment(temp_database):
 
     assert len(response.items) == 1
     item = response.items[0]
-    assert item.scan_type == "barcode_lookup"
+    assert item.scan_type == "barcode_enrichment"
     assert item.barcode == "5555555555555"
     assert item.product_name == "Demo Lotion"
     assert item.brand_name == "Demo Brand"

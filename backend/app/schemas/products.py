@@ -35,6 +35,8 @@ class NormalizedProduct(BaseModel):
 
 class ProductLookupResponse(BaseModel):
     found: bool
+    source: str = "not_found"
+    lookup_path: List[str] = Field(default_factory=list)
     product: Optional[NormalizedProduct] = None
     ingredient_text: Optional[str] = None
     assessment_result: Optional[IngredientCheckStatus] = None
