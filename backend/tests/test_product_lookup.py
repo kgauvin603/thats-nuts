@@ -83,6 +83,16 @@ class FakeHttpResponse:
         return self._payload
 
 
+class FakeInvalidJsonResponse:
+    status_code = 200
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        raise ValueError("empty or invalid JSON")
+
+
 def test_stub_provider_returns_normalized_product():
     provider = StubProductLookupProvider(
         products={
@@ -208,6 +218,73 @@ def test_open_food_facts_provider_normalizes_provider_payload():
     assert captured["timeout"] == 7.5
 
 
+def test_open_food_facts_provider_uses_required_default_user_agent():
+    captured = {}
+
+    def fake_http_get(url, params, headers, timeout):
+        captured["headers"] = headers
+        return FakeHttpResponse({"status": 0})
+
+    provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org",
+        ),
+        http_get=fake_http_get,
+    )
+
+    provider.lookup_by_barcode("3017620422003")
+
+    assert captured["headers"]["User-Agent"] == (
+        "ThatsNuts/1.0 - contact: support@activeadvantage.co"
+    )
+
+
+def test_open_food_facts_provider_uses_required_user_agent_when_setting_is_blank():
+    captured = {}
+
+    def fake_http_get(url, params, headers, timeout):
+        captured["headers"] = headers
+        return FakeHttpResponse({"status": 0})
+
+    provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org",
+            user_agent="",
+        ),
+        http_get=fake_http_get,
+    )
+
+    provider.lookup_by_barcode("3017620422003")
+
+    assert captured["headers"]["User-Agent"] == (
+        "ThatsNuts/1.0 - contact: support@activeadvantage.co"
+    )
+
+
+def test_open_food_facts_provider_appends_api_v2_product_path_once():
+    captured = {}
+
+    def fake_http_get(url, params, headers, timeout):
+        captured["url"] = url
+        return FakeHttpResponse({"status": 0})
+
+    provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org/",
+        ),
+        http_get=fake_http_get,
+    )
+
+    provider.lookup_by_barcode("3017620422003")
+
+    assert captured["url"] == "https://world.openfoodfacts.org/api/v2/product/3017620422003"
+    assert captured["url"].count("/api/v2/product/") == 1
+    assert "/api/v0/" not in captured["url"]
+
+
 def test_open_beauty_facts_provider_normalizes_provider_payload():
     captured = {}
 
@@ -254,6 +331,28 @@ def test_open_beauty_facts_provider_normalizes_provider_payload():
     assert "ingredients_text_from_image" in captured["params"]["fields"]
 
 
+def test_open_beauty_facts_provider_uses_required_default_user_agent():
+    captured = {}
+
+    def fake_http_get(url, params, headers, timeout):
+        captured["headers"] = headers
+        return FakeHttpResponse({"status": 0})
+
+    provider = OpenBeautyFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_beauty_facts",
+            base_url="https://world.openbeautyfacts.org",
+        ),
+        http_get=fake_http_get,
+    )
+
+    provider.lookup_by_barcode("3017620422003")
+
+    assert captured["headers"]["User-Agent"] == (
+        "ThatsNuts/1.0 - contact: support@activeadvantage.co"
+    )
+
+
 def test_open_food_facts_provider_returns_none_when_product_is_missing():
     provider = OpenFoodFactsProductLookupProvider(
         settings=ProductLookupProviderSettings(
@@ -269,6 +368,55 @@ def test_open_food_facts_provider_returns_none_when_product_is_missing():
     product = provider.lookup_by_barcode("0000000000000")
 
     assert product is None
+
+
+def test_open_food_facts_provider_status_one_returns_product_source():
+    provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org",
+            api_key="",
+            timeout_seconds=5.0,
+        ),
+        http_get=lambda *args, **kwargs: FakeHttpResponse(
+            {
+                "status": 1,
+                "product": {
+                    "code": "3017620422003",
+                    "product_name": "Nutella",
+                    "brands": "Nutella",
+                    "ingredients_text": "Sugar, Palm Oil, Hazelnuts, Cocoa",
+                },
+            }
+        ),
+    )
+
+    product = provider.lookup_by_barcode("3017620422003")
+
+    assert product is not None
+    assert product.barcode == "3017620422003"
+    assert product.product_name == "Nutella"
+    assert product.brand_name == "Nutella"
+    assert product.source == "open_food_facts"
+    assert product.ingredient_text == "Sugar, Palm Oil, Hazelnuts, Cocoa"
+
+
+def test_open_food_facts_empty_non_json_response_falls_through_cleanly():
+    food_provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org",
+        ),
+        http_get=lambda *args, **kwargs: FakeInvalidJsonResponse(),
+    )
+    beauty_provider = RecordingProductLookupProvider("open_beauty_facts")
+    service = ProductLookupService(ChainedProductLookupProvider((food_provider, beauty_provider)))
+
+    response = service.lookup_by_barcode("3017620422003")
+
+    assert response.found is True
+    assert response.source == "open_beauty_facts"
+    assert beauty_provider.calls == ["3017620422003"]
 
 
 def test_open_food_facts_provider_falls_back_to_partial_ingredient_list():
@@ -513,6 +661,48 @@ def test_barcode_lookup_open_food_facts_success_does_not_call_enrichment():
     assert beauty_provider.calls == []
 
 
+def test_barcode_lookup_nutella_open_food_facts_success_skips_enrichment(temp_database):
+    assert prepare_persistence() is True
+
+    food_provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org",
+        ),
+        http_get=lambda *args, **kwargs: FakeHttpResponse(
+            {
+                "status": 1,
+                "product": {
+                    "code": "3017620422003",
+                    "product_name": "Nutella",
+                    "brands": "Nutella",
+                    "ingredients_text": "Sugar, Palm Oil, Hazelnuts, Cocoa",
+                },
+            }
+        ),
+    )
+    beauty_provider = RecordingProductLookupProvider("open_beauty_facts")
+    service = ProductLookupService(ChainedProductLookupProvider((food_provider, beauty_provider)))
+    service.enrich_barcode_with_ingredients(
+        "3017620422003",
+        "Water, Juglans Regia Seed Oil",
+        product_name="Validation Product",
+        brand_name="Validation Brand",
+        source="manual_entry",
+    )
+
+    response = service.lookup_by_barcode("3017620422003")
+
+    assert response.found is True
+    assert response.source == "open_food_facts"
+    assert response.product is not None
+    assert response.product.brand_name == "Nutella"
+    assert response.product.product_name == "Nutella"
+    assert response.ingredient_text == "Sugar, Palm Oil, Hazelnuts, Cocoa"
+    assert beauty_provider.calls == []
+    assert "enrichment:skipped" in response.lookup_path
+
+
 def test_barcode_lookup_food_failure_then_beauty_success_does_not_call_enrichment():
     food_provider = RecordingProductLookupProvider("open_food_facts", product=None)
     beauty_provider = RecordingProductLookupProvider("open_beauty_facts")
@@ -592,6 +782,34 @@ def test_barcode_lookup_source_failures_call_enrichment_cache(temp_database):
     assert response.product is not None
     assert response.product.source == "manual_entry"
     assert response.ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
+
+
+def test_barcode_lookup_ignores_validation_manual_cache_for_real_barcode(temp_database):
+    assert prepare_persistence() is True
+
+    service = ProductLookupService(
+        ChainedProductLookupProvider(
+            (
+                RecordingProductLookupProvider("open_food_facts", product=None),
+                RecordingProductLookupProvider("open_beauty_facts", product=None),
+            )
+        )
+    )
+    service.enrich_barcode_with_ingredients(
+        "3017620422003",
+        "Water, Juglans Regia Seed Oil",
+        product_name="Validation Product",
+        brand_name="Validation Brand",
+        source="manual_entry",
+    )
+
+    response = service.lookup_by_barcode("3017620422003")
+
+    assert response.found is False
+    assert response.source == "not_found"
+    assert response.product is None
+    assert response.ingredient_text is None
+    assert "enrichment:failed" in response.lookup_path
 
 
 def test_barcode_lookup_failed_enrichment_returns_clean_not_found_response():

@@ -76,7 +76,7 @@ PRODUCT_LOOKUP_BEAUTY_BASE_URL=https://world.openbeautyfacts.org
 PRODUCT_LOOKUP_FOOD_BASE_URL=https://world.openfoodfacts.org
 PRODUCT_LOOKUP_BASE_URL=https://world.openfoodfacts.org
 PRODUCT_LOOKUP_API_KEY=
-PRODUCT_LOOKUP_USER_AGENT="thats-nuts-backend/0.1 (contact@example.com)"
+PRODUCT_LOOKUP_USER_AGENT="ThatsNuts/1.0 - contact: support@activeadvantage.co"
 PRODUCT_LOOKUP_TIMEOUT_SECONDS=5.0
 ```
 
@@ -124,7 +124,7 @@ APP_LOG_LEVEL=info
 DATABASE_URL=sqlite:///./thatsnuts.db
 DATABASE_AUTO_CREATE=true
 DATABASE_SEED_DATA=true
-PRODUCT_LOOKUP_PROVIDER=beauty_then_food
+PRODUCT_LOOKUP_PROVIDER=food_then_beauty
 PRODUCT_LOOKUP_BEAUTY_BASE_URL=https://world.openbeautyfacts.org
 PRODUCT_LOOKUP_FOOD_BASE_URL=https://world.openfoodfacts.org
 ```
@@ -197,7 +197,7 @@ PRODUCT_LOOKUP_FOOD_BASE_URL=https://world.openfoodfacts.org
 # Legacy alias for the food provider base URL:
 # PRODUCT_LOOKUP_BASE_URL=https://world.openfoodfacts.org
 PRODUCT_LOOKUP_API_KEY=
-PRODUCT_LOOKUP_USER_AGENT="thats-nuts-backend/0.1 (contact@example.com)"
+PRODUCT_LOOKUP_USER_AGENT="ThatsNuts/1.0 - contact: support@activeadvantage.co"
 PRODUCT_LOOKUP_TIMEOUT_SECONDS=5.0
 ```
 

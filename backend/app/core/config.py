@@ -3,6 +3,8 @@ from functools import lru_cache
 
 from pydantic import BaseModel
 
+from app.core.product_lookup_constants import DEFAULT_PRODUCT_LOOKUP_USER_AGENT
+
 
 class Settings(BaseModel):
     app_name: str = "Thats Nuts API"
@@ -17,7 +19,7 @@ class Settings(BaseModel):
     product_lookup_beauty_base_url: str = "https://world.openbeautyfacts.org"
     product_lookup_food_base_url: str = "https://world.openfoodfacts.org"
     product_lookup_api_key: str = ""
-    product_lookup_user_agent: str = "thats-nuts-backend/0.1 (contact@example.com)"
+    product_lookup_user_agent: str = DEFAULT_PRODUCT_LOOKUP_USER_AGENT
     product_lookup_timeout_seconds: float = 5.0
 
 
@@ -49,9 +51,8 @@ def get_settings() -> Settings:
             os.getenv("PRODUCT_LOOKUP_BASE_URL", "https://world.openfoodfacts.org"),
         ),
         product_lookup_api_key=os.getenv("PRODUCT_LOOKUP_API_KEY", ""),
-        product_lookup_user_agent=os.getenv(
-            "PRODUCT_LOOKUP_USER_AGENT",
-            "thats-nuts-backend/0.1 (contact@example.com)",
+        product_lookup_user_agent=(
+            os.getenv("PRODUCT_LOOKUP_USER_AGENT") or DEFAULT_PRODUCT_LOOKUP_USER_AGENT
         ),
         product_lookup_timeout_seconds=float(os.getenv("PRODUCT_LOOKUP_TIMEOUT_SECONDS", "5.0")),
     )

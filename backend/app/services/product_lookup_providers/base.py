@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from app.schemas.products import NormalizedProduct
+from app.core.product_lookup_constants import DEFAULT_PRODUCT_LOOKUP_USER_AGENT
 
 
 class ProductLookupProviderError(RuntimeError):
@@ -14,7 +15,7 @@ class ProductLookupProviderSettings:
     provider_name: str
     base_url: str
     api_key: str = ""
-    user_agent: str = "thats-nuts-backend/0.1 (contact@example.com)"
+    user_agent: str = DEFAULT_PRODUCT_LOOKUP_USER_AGENT
     timeout_seconds: float = 5.0
     beauty_base_url: str = ""
     food_base_url: str = ""

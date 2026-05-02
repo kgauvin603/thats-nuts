@@ -1,14 +1,18 @@
+import logging
 import re
 from typing import Callable, Optional
 
 import httpx
 
+from app.core.product_lookup_constants import DEFAULT_PRODUCT_LOOKUP_USER_AGENT
 from app.schemas.products import NormalizedProduct
 from app.services.product_lookup_providers.base import (
     ProductLookupProvider,
     ProductLookupProviderError,
     ProductLookupProviderSettings,
 )
+
+logger = logging.getLogger(__name__)
 
 OPEN_FACTS_FIELDS = (
     "code,product_name,product_name_en,generic_name,generic_name_en,"
@@ -54,18 +58,60 @@ class OpenFactsProductLookupProvider(ProductLookupProvider):
                 response = self.http_get(
                     f"{self.settings.base_url.rstrip('/')}/api/v2/product/{barcode}",
                     params={"fields": OPEN_FACTS_FIELDS},
-                    headers={"User-Agent": self.settings.user_agent},
+                    headers={
+                        "User-Agent": self.settings.user_agent
+                        or DEFAULT_PRODUCT_LOOKUP_USER_AGENT
+                    },
                     timeout=self.settings.timeout_seconds,
                 )
                 response.raise_for_status()
                 payload = response.json()
+                if not isinstance(payload, dict):
+                    raise ProductLookupProviderError(
+                        f"{self.provider_name.replace('_', ' ').title()} returned a non-object response."
+                    )
                 break
             except httpx.RequestError as exc:
                 if attempt == 1:
+                    logger.info(
+                        "%s request failed for barcode %s",
+                        self.provider_name,
+                        barcode,
+                    )
                     raise ProductLookupProviderError(
                         f"{self.provider_name.replace('_', ' ').title()} request failed."
                     ) from exc
-            except (httpx.HTTPStatusError, ValueError) as exc:
+            except httpx.HTTPStatusError as exc:
+                logger.info(
+                    "%s returned HTTP failure for barcode %s",
+                    self.provider_name,
+                    barcode,
+                )
+                raise ProductLookupProviderError(
+                    f"{self.provider_name.replace('_', ' ').title()} returned an invalid response."
+                ) from exc
+            except ValueError as exc:
+                logger.info(
+                    "%s returned empty or non-JSON response for barcode %s",
+                    self.provider_name,
+                    barcode,
+                )
+                raise ProductLookupProviderError(
+                    f"{self.provider_name.replace('_', ' ').title()} returned an invalid response."
+                ) from exc
+            except ProductLookupProviderError:
+                logger.info(
+                    "%s returned unusable response for barcode %s",
+                    self.provider_name,
+                    barcode,
+                )
+                raise
+            except Exception as exc:
+                logger.info(
+                    "%s returned unexpected invalid response for barcode %s",
+                    self.provider_name,
+                    barcode,
+                )
                 raise ProductLookupProviderError(
                     f"{self.provider_name.replace('_', ' ').title()} returned an invalid response."
                 ) from exc

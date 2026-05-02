@@ -41,6 +41,9 @@ MANUAL_ENRICHMENT_EXPLANATION = (
     "Product data was saved from a locally submitted ingredient list for this barcode."
 )
 ENRICHMENT_CACHE_SOURCES = {"manual_entry", "text_scan"}
+VALIDATION_CACHE_BRAND_NAMES = {"validation brand"}
+VALIDATION_CACHE_PRODUCT_NAMES = {"validation product"}
+VALIDATION_CACHE_INGREDIENT_TEXTS = {"water, juglans regia seed oil"}
 
 logger = logging.getLogger(__name__)
 
@@ -100,27 +103,22 @@ class ProductLookupService:
         )
         lookup_path.append("enrichment:attempted")
         enrichment_product = get_cached_product(normalized_barcode)
-        if enrichment_product and product_lookup_has_usable_ingredient_text(enrichment_product):
+        if self._has_usable_enrichment_product(enrichment_product, normalized_barcode):
             logger.info(
                 "Barcode lookup: enrichment succeeded for normalized barcode %s",
                 normalized_barcode,
             )
             lookup_path.append("enrichment:succeeded")
-            response_source = (
-                "enrichment"
-                if enrichment_product.source in ENRICHMENT_CACHE_SOURCES
-                else enrichment_product.source
-            )
             logger.info(
                 "Barcode lookup: final provider/source selected %s for normalized barcode %s",
-                response_source,
+                "enrichment",
                 normalized_barcode,
             )
             return self._build_assessed_response(
                 enrichment_product,
                 source_explanation=self._build_cached_source_explanation(enrichment_product),
                 allergy_profile=allergy_profile,
-                response_source=response_source,
+                response_source="enrichment",
                 lookup_path=lookup_path,
             )
 
@@ -293,6 +291,36 @@ class ProductLookupService:
         if product.source in {"manual_entry", "text_scan"}:
             return "Product data was returned from the local barcode enrichment cache."
         return "Product data was returned from the local product cache."
+
+    @staticmethod
+    def _has_usable_enrichment_product(
+        product: Optional[NormalizedProduct],
+        barcode: str,
+    ) -> bool:
+        if product is None:
+            return False
+        if product.barcode != barcode:
+            return False
+        if product.source not in ENRICHMENT_CACHE_SOURCES:
+            return False
+        if ProductLookupService._is_validation_cache_product(product):
+            logger.info(
+                "Barcode lookup: ignored validation enrichment cache row for normalized barcode %s",
+                barcode,
+            )
+            return False
+        return product_lookup_has_usable_ingredient_text(product)
+
+    @staticmethod
+    def _is_validation_cache_product(product: NormalizedProduct) -> bool:
+        brand_name = (product.brand_name or "").strip().lower()
+        product_name = (product.product_name or "").strip().lower()
+        ingredient_text = (product.ingredient_text or "").strip().lower()
+        return (
+            brand_name in VALIDATION_CACHE_BRAND_NAMES
+            or product_name in VALIDATION_CACHE_PRODUCT_NAMES
+            or ingredient_text in VALIDATION_CACHE_INGREDIENT_TEXTS
+        )
 
     def _build_provider_lookup_path(
         self,
