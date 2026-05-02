@@ -30,3 +30,4 @@ htmlcov/
 node_modules/
 .dart_tool/
 build/
+backend/thatsnuts.db
