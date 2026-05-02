@@ -290,10 +290,9 @@ class ResultScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: backgroundColor ??
-            Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: backgroundColor ?? BrandColors.surfaceAlt,
         borderRadius: BorderRadius.circular(16),
-        border: borderColor == null ? null : Border.all(color: borderColor),
+        border: Border.all(color: borderColor ?? BrandColors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,9 +342,9 @@ class ResultScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+        color: Colors.white.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withOpacity(0.24)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -451,8 +450,9 @@ class ResultScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: BrandColors.surfaceAlt,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: BrandColors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -480,7 +480,10 @@ class ResultScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: _statusSurfaceColor(),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: statusColor.withOpacity(0.28), width: 1.4),
+        border: Border.all(
+          color: statusColor.withValues(alpha: 0.28),
+          width: 1.4,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,7 +588,7 @@ class ResultScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: statusColor.withOpacity(0.24),
+                  color: statusColor.withValues(alpha: 0.24),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
@@ -598,7 +601,7 @@ class ResultScreen extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.16),
+                    color: Colors.white.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -631,7 +634,7 @@ class ResultScreen extends StatelessWidget {
                           Text(
                             _statusCaption(),
                             style: textTheme.bodyLarge?.copyWith(
-                              color: Colors.white.withOpacity(0.92),
+                              color: Colors.white.withValues(alpha: 0.92),
                               height: 1.35,
                             ),
                           ),
@@ -640,10 +643,10 @@ class ResultScreen extends StatelessWidget {
                             width: double.infinity,
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.14),
+                              color: Colors.white.withValues(alpha: 0.14),
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.18),
+                                color: Colors.white.withValues(alpha: 0.18),
                               ),
                             ),
                             child: Column(
@@ -661,7 +664,7 @@ class ResultScreen extends StatelessWidget {
                                 Text(
                                   _statusActionHint(),
                                   style: textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white.withOpacity(0.94),
+                                    color: Colors.white.withValues(alpha: 0.94),
                                     height: 1.35,
                                   ),
                                 ),
@@ -717,7 +720,7 @@ class ResultScreen extends StatelessWidget {
                   value: _statusLabel(),
                   icon: _statusIcon(),
                   backgroundColor: _statusSurfaceColor(),
-                  borderColor: _statusColor().withOpacity(0.2),
+                  borderColor: _statusColor().withValues(alpha: 0.2),
                   valueColor: _statusColor(),
                   labelColor: _statusColor(),
                 ),
@@ -728,7 +731,7 @@ class ResultScreen extends StatelessWidget {
                   value: _matchSummary(),
                   icon: Icons.list_alt_rounded,
                   backgroundColor: _statusSurfaceColor(),
-                  borderColor: _statusColor().withOpacity(0.14),
+                  borderColor: _statusColor().withValues(alpha: 0.14),
                 ),
                 const SizedBox(height: 10),
                 _labeledDetail(
@@ -737,7 +740,7 @@ class ResultScreen extends StatelessWidget {
                   value: _statusActionHint(),
                   icon: Icons.arrow_forward_rounded,
                   backgroundColor: _statusSurfaceColor(),
-                  borderColor: _statusColor().withOpacity(0.14),
+                  borderColor: _statusColor().withValues(alpha: 0.14),
                 ),
               ],
             ),
@@ -761,7 +764,7 @@ class ResultScreen extends StatelessWidget {
                 color: statusSurfaceColor,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: statusColor.withOpacity(0.14),
+                  color: statusColor.withValues(alpha: 0.14),
                 ),
               ),
               child: Text(
@@ -781,8 +784,7 @@ class ResultScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color: BrandColors.surfaceAlt,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: BrandColors.border),
                     ),

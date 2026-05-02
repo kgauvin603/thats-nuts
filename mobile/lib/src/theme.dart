@@ -19,6 +19,10 @@ ThemeData buildThatsNutsTheme() {
     onSecondaryContainer: BrandColors.ink,
     errorContainer: BrandColors.dangerSurface,
     onErrorContainer: BrandColors.ink,
+    surfaceContainerHighest: BrandColors.surfaceAlt,
+    onSurfaceVariant: BrandColors.mutedInk,
+    outline: BrandColors.border,
+    outlineVariant: BrandColors.border,
   );
 
   final baseTextTheme =
@@ -35,15 +39,15 @@ ThemeData buildThatsNutsTheme() {
     textTheme: baseTextTheme.copyWith(
       headlineSmall: baseTextTheme.headlineSmall?.copyWith(
         fontWeight: FontWeight.w800,
-        letterSpacing: -0.3,
+        letterSpacing: 0,
       ),
       headlineMedium: baseTextTheme.headlineMedium?.copyWith(
         fontWeight: FontWeight.w800,
-        letterSpacing: -0.4,
+        letterSpacing: 0,
       ),
       titleLarge: baseTextTheme.titleLarge?.copyWith(
         fontWeight: FontWeight.w800,
-        letterSpacing: -0.3,
+        letterSpacing: 0,
       ),
       titleMedium: baseTextTheme.titleMedium?.copyWith(
         fontWeight: FontWeight.w700,
@@ -62,7 +66,12 @@ ThemeData buildThatsNutsTheme() {
         color: BrandColors.ink,
         fontSize: 26,
         fontWeight: FontWeight.w800,
-        letterSpacing: -0.4,
+        letterSpacing: 0,
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        foregroundColor: BrandColors.acorn,
       ),
     ),
     cardTheme: CardThemeData(
@@ -147,6 +156,10 @@ ThemeData buildThatsNutsTheme() {
         borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: BrandColors.copper, width: 1.4),
       ),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: BrandColors.harvest,
+      circularTrackColor: BrandColors.surfaceAlt,
     ),
     chipTheme: ChipThemeData(
       backgroundColor: BrandColors.surfaceAlt,

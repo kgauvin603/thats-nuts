@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../brand.dart';
 import '../models/allergy_profile.dart';
 
 class ProfileScreen extends StatefulWidget {

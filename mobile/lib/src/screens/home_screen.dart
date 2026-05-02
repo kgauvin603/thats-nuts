@@ -141,7 +141,7 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                   child: const Center(
-                    child: AcornMark(size: 38),
+                    child: AcornMark(size: 48),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -154,7 +154,7 @@ class HomeScreen extends StatelessWidget {
                   'Identify nut ingredients in beauty, skincare, cosmetics — and packaged foods too.',
                   style: textTheme.bodyMedium?.copyWith(
                     height: 1.4,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: BrandColors.mutedInk,
                   ),
                 ),
               ],
@@ -162,6 +162,7 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Card(
+            color: BrandColors.surfaceAlt,
             margin: EdgeInsets.zero,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -171,8 +172,9 @@ class HomeScreen extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: BrandColors.surfaceAlt,
+                      color: BrandColors.neutralSurface,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: BrandColors.border),
                     ),
                     child: const Icon(Icons.tune_rounded, size: 20),
                   ),
@@ -195,9 +197,7 @@ class HomeScreen extends StatelessWidget {
                               : 'All supported nut-related ingredients',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    color: BrandColors.mutedInk,
                                   ),
                         ),
                       ],

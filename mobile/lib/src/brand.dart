@@ -17,6 +17,7 @@ class BrandColors {
   static const Color panelAccent = Color(0xFFD4C18D);
   static const Color border = Color(0xFFD2BDA4);
   static const Color ink = Color(0xFF3D2B1F);
+  static const Color mutedInk = Color(0xFF6F5B48);
 
   static const Color danger = Color(0xFFC85D36);
   static const Color dangerSurface = Color(0xFFF8E0D6);

@@ -133,15 +133,14 @@ class _ManualIngredientInputScreenState
                     decoration: const InputDecoration(
                       labelText: 'Ingredient List',
                       alignLabelWithHint: true,
-                      hintText:
-                          'Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance',
+                      hintText: 'Tap here to paste or scan ingredients.',
                       border: OutlineInputBorder(),
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Use the iPhone text scan control in the field if needed.',
+                  'Tap inside the box, then use iPhone Text Scan from the keyboard/text field to scan the ingredient label.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

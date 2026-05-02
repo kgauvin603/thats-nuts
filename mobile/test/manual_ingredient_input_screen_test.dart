@@ -27,9 +27,17 @@ void main() {
     expect(find.text('Profile: Almond'), findsOneWidget);
     expect(
       find.text(
-        'Use the iPhone text scan control in the field if needed.',
+        'Tap inside the box, then use iPhone Text Scan from the keyboard/text field to scan the ingredient label.',
       ),
       findsOneWidget,
+    );
+    expect(
+      find.text('Tap here to paste or scan ingredients.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Water, Glycerin, Prunus Amygdalus Dulcis Oil, Fragrance'),
+      findsNothing,
     );
     final textField = tester
         .widget<TextField>(find.widgetWithText(TextField, 'Ingredient List'));

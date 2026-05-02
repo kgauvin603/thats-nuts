@@ -20,3 +20,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - ios/Runner/Assets.xcassets/AppIcon.appiconset/1024.png

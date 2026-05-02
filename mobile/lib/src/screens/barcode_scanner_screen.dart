@@ -31,6 +31,8 @@ class BarcodeScannerScreen extends StatefulWidget {
 }
 
 class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
+  static const Duration _scanCooldown = Duration(milliseconds: 1200);
+
   final MobileScannerController _controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
     formats: const [
@@ -44,6 +46,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
   bool _isHandlingScan = false;
   String? _errorMessage;
   String? _lastScannedBarcode;
+  DateTime? _lastScanStartedAt;
 
   @override
   void dispose() {
@@ -55,6 +58,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     setState(() {
       _errorMessage = null;
       _lastScannedBarcode = null;
+      _lastScanStartedAt = null;
       _isHandlingScan = false;
     });
 
@@ -72,27 +76,36 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
   }
 
   Future<void> _handleBarcode(String barcode) async {
-    if (_isHandlingScan) {
+    final trimmedBarcode = barcode.trim();
+    if (trimmedBarcode.isEmpty || _isHandlingScan) {
       return;
     }
+
+    final now = DateTime.now();
+    final lastScanStartedAt = _lastScanStartedAt;
+    if (lastScanStartedAt != null &&
+        now.difference(lastScanStartedAt) < _scanCooldown) {
+      return;
+    }
+    _lastScanStartedAt = now;
 
     setState(() {
       _isHandlingScan = true;
       _errorMessage = null;
-      _lastScannedBarcode = barcode;
+      _lastScannedBarcode = trimmedBarcode;
     });
 
     try {
       await _controller.stop();
       final result = await widget.apiClient.lookupProduct(
-        barcode,
+        trimmedBarcode,
         allergyProfile: widget.allergyProfile,
       );
       widget.historyRefreshController.markChanged();
       if (!mounted) {
         return;
       }
-      await _openLookupResult(barcode, result);
+      await _openLookupResult(trimmedBarcode, result);
       await _restartScanner();
     } on ThatsNutsApiException catch (error) {
       if (!mounted) {
@@ -112,7 +125,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
       });
       await _controller.start();
     } finally {
-      if (mounted) {
+      if (mounted && _isHandlingScan) {
         setState(() {
           _isHandlingScan = false;
         });
@@ -168,6 +181,45 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
       return 'Scanner ready. A successful scan opens the result screen.';
     }
     return 'Align a barcode inside the frame.';
+  }
+
+  Widget _buildScannerPreview(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: AspectRatio(
+        aspectRatio: 3 / 4,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            widget.scannerPreview ??
+                MobileScanner(
+                  controller: _controller,
+                  errorBuilder: _buildScannerError,
+                  onDetect: (capture) {
+                    if (_isHandlingScan) {
+                      return;
+                    }
+
+                    for (final barcode in capture.barcodes) {
+                      final rawValue = barcode.rawValue?.trim();
+                      if (rawValue != null && rawValue.isNotEmpty) {
+                        _handleBarcode(rawValue);
+                        return;
+                      }
+                    }
+                  },
+                ),
+            const _StaticScannerOverlay(),
+            _ScannerStatusOverlay(
+              controller: _controller,
+              isHandlingScan: _isHandlingScan,
+              lastScannedBarcode: _lastScannedBarcode,
+              statusTextBuilder: _scannerStatusText,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildScannerError(
@@ -282,103 +334,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
                     style: textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: AspectRatio(
-                      aspectRatio: 3 / 4,
-                      child: ValueListenableBuilder<MobileScannerState>(
-                        valueListenable: _controller,
-                        builder: (context, state, _) {
-                          return Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              widget.scannerPreview ??
-                                  MobileScanner(
-                                    controller: _controller,
-                                    errorBuilder: _buildScannerError,
-                                    onDetect: (capture) {
-                                      if (_isHandlingScan) {
-                                        return;
-                                      }
-
-                                      for (final barcode in capture.barcodes) {
-                                        final rawValue =
-                                            barcode.rawValue?.trim();
-                                        if (rawValue != null &&
-                                            rawValue.isNotEmpty) {
-                                          _handleBarcode(rawValue);
-                                          return;
-                                        }
-                                      }
-                                    },
-                                  ),
-                              IgnorePointer(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: BrandColors.border,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Container(
-                                      width: 240,
-                                      height: 160,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(24),
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.88),
-                                          width: 3,
-                                        ),
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.black.withOpacity(0.14),
-                                            Colors.black.withOpacity(0.04),
-                                          ],
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                        ),
-                                      ),
-                                      alignment: Alignment.bottomCenter,
-                                      padding: const EdgeInsets.all(12),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            _scannerStatusText(state),
-                                            textAlign: TextAlign.center,
-                                            style:
-                                                textTheme.bodyMedium?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          if (_lastScannedBarcode != null &&
-                                              !_isHandlingScan) ...[
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              'Last scan: $_lastScannedBarcode',
-                                              textAlign: TextAlign.center,
-                                              style:
-                                                  textTheme.bodySmall?.copyWith(
-                                                color: Colors.white
-                                                    .withOpacity(0.92),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ),
+                  _buildScannerPreview(context),
                   const SizedBox(height: 12),
                   ValueListenableBuilder<MobileScannerState>(
                     valueListenable: _controller,
@@ -502,6 +458,118 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+typedef _ScannerStatusTextBuilder = String Function(MobileScannerState state);
+
+class _StaticScannerOverlay extends StatelessWidget {
+  const _StaticScannerOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: BrandColors.border,
+            width: 1.5,
+          ),
+        ),
+        child: Center(
+          child: SizedBox(
+            width: 240,
+            height: 160,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.88),
+                  width: 3,
+                ),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.black.withValues(alpha: 0.14),
+                    Colors.black.withValues(alpha: 0.04),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScannerStatusOverlay extends StatelessWidget {
+  const _ScannerStatusOverlay({
+    required this.controller,
+    required this.isHandlingScan,
+    required this.lastScannedBarcode,
+    required this.statusTextBuilder,
+  });
+
+  final MobileScannerController controller;
+  final bool isHandlingScan;
+  final String? lastScannedBarcode;
+  final _ScannerStatusTextBuilder statusTextBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return IgnorePointer(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 68),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.32),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+              ),
+            ),
+            child: ValueListenableBuilder<MobileScannerState>(
+              valueListenable: controller,
+              builder: (context, state, _) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      statusTextBuilder(state),
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (lastScannedBarcode != null && !isHandlingScan) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Last scan: $lastScannedBarcode',
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.92),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
   }

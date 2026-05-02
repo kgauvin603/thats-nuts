@@ -334,7 +334,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       color: statusSurfaceColor,
                                       borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                        color: statusColor.withOpacity(0.24),
+                                        color:
+                                            statusColor.withValues(alpha: 0.24),
                                         width: 1.4,
                                       ),
                                     ),
