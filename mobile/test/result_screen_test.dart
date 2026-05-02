@@ -60,6 +60,8 @@ void main() {
     expect(find.text('Product name'), findsOneWidget);
     expect(find.text('Sample Lotion'), findsOneWidget);
     expect(find.text('Test Brand'), findsOneWidget);
+    expect(find.byKey(const Key('result-product-photo-card')), findsOneWidget);
+    expect(find.text('No product photo available.'), findsOneWidget);
     expect(find.text('012345678905'), findsOneWidget);
     expect(find.text('Partial ingredient coverage'), findsOneWidget);
     expect(find.text('Ingredient coverage'), findsOneWidget);
@@ -81,6 +83,88 @@ void main() {
     expect(find.byKey(const Key('result-primary-action')), findsOneWidget);
     expect(find.text('Scan Again'), findsOneWidget);
     expect(find.text('Back'), findsOneWidget);
+  });
+
+  testWidgets('renders product photo image when image URL is present',
+      (WidgetTester tester) async {
+    const imageUrl =
+        'https://images.openfoodfacts.org/images/products/301/762/042/2003/front_en.820.400.jpg';
+    const result = ProductLookupResult(
+      found: true,
+      product: LookupProduct(
+        barcode: '3017620422003',
+        brandName: 'Nutella',
+        productName: 'Nutella',
+        imageUrl: imageUrl,
+        ingredientCoverageStatus: 'complete',
+        source: 'open_food_facts',
+      ),
+      ingredientText: 'Sucre, huile de palme, NOISETTES 13%',
+      assessmentResult: 'contains_nut_ingredient',
+      explanation: 'Detected hazelnut.',
+      matchedIngredients: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResultScreen.forProductLookup(
+          barcode: '3017620422003',
+          result: result,
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('result-product-photo-card')),
+      250,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(find.byKey(const Key('result-product-photo-card')), findsOneWidget);
+    final image = tester.widget<Image>(
+      find.byKey(const Key('result-product-photo-image')),
+    );
+    expect(image.image, isA<NetworkImage>());
+    expect((image.image as NetworkImage).url, imageUrl);
+    expect(find.text('No product photo available.'), findsNothing);
+  });
+
+  testWidgets('renders product photo placeholder when image URL is missing',
+      (WidgetTester tester) async {
+    const result = ProductLookupResult(
+      found: true,
+      product: LookupProduct(
+        barcode: '3017620422003',
+        brandName: 'Nutella',
+        productName: 'Nutella',
+        imageUrl: '',
+        ingredientCoverageStatus: 'complete',
+        source: 'open_food_facts',
+      ),
+      ingredientText: 'Sucre, huile de palme',
+      assessmentResult: 'no_nut_ingredient_found',
+      explanation: 'No nut-linked ingredients were flagged.',
+      matchedIngredients: [],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResultScreen.forProductLookup(
+          barcode: '3017620422003',
+          result: result,
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('result-product-photo-card')),
+      250,
+      scrollable: find.byType(Scrollable),
+    );
+
+    expect(find.byKey(const Key('result-product-photo-card')), findsOneWidget);
+    expect(find.text('No product photo available.'), findsOneWidget);
+    expect(find.byKey(const Key('result-product-photo-image')), findsNothing);
   });
 
   testWidgets('renders cannot verify state with no matches clearly',

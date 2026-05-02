@@ -193,6 +193,11 @@ def _match_allergen_rules(
     matches: List[Tuple[AllergenRule, Tuple[DetectionAlias, ...]]] = []
     for rule in _normalized_allergen_rules():
         matched_terms = _find_matching_terms(normalized_name, rule.aliases)
+        matched_terms = _filter_contextual_overbroad_aliases(
+            normalized_name,
+            rule.key,
+            matched_terms,
+        )
         if matched_terms:
             matches.append((rule, matched_terms))
     return matches
@@ -242,6 +247,39 @@ def _find_matching_text_terms(
 
 def _contains_phrase(normalized_text: str, phrase: str) -> bool:
     return re.search(rf"(^|\s){re.escape(phrase)}($|\s)", normalized_text) is not None
+
+
+def _filter_contextual_overbroad_aliases(
+    normalized_text: str,
+    rule_key: str,
+    matched_aliases: Tuple[DetectionAlias, ...],
+) -> Tuple[DetectionAlias, ...]:
+    if rule_key != "walnut":
+        return matched_aliases
+
+    blocked_contexts = (
+        "noix de cajou",
+        "noix de pecan",
+        "noix du bresil",
+        "noix de macadamia",
+        "nuez de macadamia",
+        "nueces de macadamia",
+        "nuez de brasil",
+        "nueces de brasil",
+        "nuez pecana",
+        "nueces pecanas",
+        "noce pecan",
+        "noci pecan",
+        "noce di macadamia",
+        "noci di macadamia",
+        "noce del brasile",
+        "noci del brasile",
+    )
+    if not any(_contains_phrase(normalized_text, context) for context in blocked_contexts):
+        return matched_aliases
+
+    overbroad_terms = {"noix", "nuez", "nueces", "noce", "noci"}
+    return tuple(alias for alias in matched_aliases if alias.term not in overbroad_terms)
 
 
 def _detection_basis(matched_aliases: Tuple[DetectionAlias, ...]) -> str:

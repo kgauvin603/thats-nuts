@@ -1,3 +1,5 @@
+import pytest
+
 from app.schemas.ingredients import AllergyProfile, IngredientCheckRequest, IngredientCheckResponse
 from app.services.rules_engine import check_ingredient_text
 
@@ -41,6 +43,51 @@ def test_detects_macadamia_seed_oil():
     assert result["status"] == "contains_nut_ingredient"
     assert len(result["matched_ingredients"]) == 1
     assert result["matched_ingredients"][0]["nut_source"] == "macadamia"
+
+
+def test_detects_nutella_open_food_facts_french_hazelnut_text():
+    result = check_ingredient_text(
+        "Sucre, huile de palme, NOISETTES 13%, cacao maigre 7,4%, "
+        "LAIT écrémé en poudre 6,6%, LACTOSERUM en poudre, "
+        "émulsifiants: lécithines [SOJA), vanilline. Sans gluten."
+    )
+
+    assert result["status"] == "contains_nut_ingredient"
+    assert len(result["matched_ingredients"]) == 1
+    match = result["matched_ingredients"][0]
+    assert match["original_text"] == "NOISETTES 13%"
+    assert match["nut_source"] == "hazelnut"
+    assert match["confidence"] == "high"
+
+
+@pytest.mark.parametrize(
+    ("ingredient_text", "nut_source"),
+    (
+        ("noisette", "hazelnut"),
+        ("noisettes", "hazelnut"),
+        ("avellana", "hazelnut"),
+        ("avellanas", "hazelnut"),
+        ("nocciola", "hazelnut"),
+        ("nocciole", "hazelnut"),
+        ("hazelnut", "hazelnut"),
+        ("hazelnuts", "hazelnut"),
+        ("Corylus Avellana", "hazelnut"),
+        ("huile de noisette", "hazelnut"),
+        ("harina de almendra", "almond"),
+        ("olio di mandorla dolce", "almond"),
+        ("noix de cajou", "cashew"),
+        ("nuez de macadamia", "macadamia"),
+        ("piñones", "pine_nut"),
+        ("noci pecan", "pecan"),
+    ),
+)
+def test_detects_multilingual_tree_nut_aliases(ingredient_text, nut_source):
+    result = check_ingredient_text(f"Water, {ingredient_text}, Glycerin")
+
+    assert result["status"] == "contains_nut_ingredient"
+    assert len(result["matched_ingredients"]) == 1
+    assert result["matched_ingredients"][0]["nut_source"] == nut_source
+    assert result["matched_ingredients"][0]["confidence"] == "high"
 
 
 def test_glycerin_only_does_not_match():

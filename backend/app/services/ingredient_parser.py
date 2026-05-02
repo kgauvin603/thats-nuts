@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from typing import List
 
 
@@ -27,6 +28,8 @@ UNUSABLE_TERMS = {
 
 
 def normalize_text(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value)
+    value = "".join(character for character in value if not unicodedata.combining(character))
     value = value.lower().strip()
     value = re.sub(r"\binci\s*:", " ", value)
     value = re.sub(r"\bn\s*/\s*a\b", "na", value)

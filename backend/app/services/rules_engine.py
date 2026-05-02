@@ -26,6 +26,8 @@ TREE_NUT_SOURCES = {
     "macadamia",
     "brazil_nut",
     "pecan",
+    "pine_nut",
+    "chestnut",
 }
 
 def cannot_verify_response(explanation: str) -> dict:

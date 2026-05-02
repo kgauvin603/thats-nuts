@@ -17,6 +17,7 @@ class ResultScreen extends StatelessWidget {
     this.submittedText,
     this.productName,
     this.brandName,
+    this.productImageUrl,
     this.barcode,
     this.productSource,
     this.coverageStatus,
@@ -57,6 +58,7 @@ class ResultScreen extends StatelessWidget {
       submittedText: result.ingredientText,
       productName: result.product?.productName,
       brandName: result.product?.brandName,
+      productImageUrl: result.product?.imageUrl,
       barcode: result.product?.barcode.isNotEmpty == true
           ? result.product?.barcode
           : barcode,
@@ -75,6 +77,7 @@ class ResultScreen extends StatelessWidget {
   final String? submittedText;
   final String? productName;
   final String? brandName;
+  final String? productImageUrl;
   final String? barcode;
   final String? productSource;
   final String? coverageStatus;
@@ -84,6 +87,7 @@ class ResultScreen extends StatelessWidget {
   bool get _hasProductDetails =>
       productName != null ||
       brandName != null ||
+      _hasProductPhoto ||
       barcode != null ||
       coverageStatus != null;
 
@@ -214,6 +218,9 @@ class ResultScreen extends StatelessWidget {
   String _primaryActionLabel() {
     return _isLookupResult ? 'Scan Again' : 'Check Another Ingredient List';
   }
+
+  bool get _hasProductPhoto =>
+      productImageUrl != null && productImageUrl!.trim().isNotEmpty;
 
   Widget _manualEnrichmentCard(BuildContext context) {
     return _sectionCard(
@@ -395,6 +402,94 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
+  Widget _productPhotoCard(BuildContext context) {
+    final imageUrl = productImageUrl?.trim();
+
+    return Container(
+      key: const Key('result-product-photo-card'),
+      width: double.infinity,
+      height: 220,
+      decoration: BoxDecoration(
+        color: BrandColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: BrandColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: imageUrl == null || imageUrl.isEmpty
+          ? _productPhotoPlaceholder(context)
+          : Image.network(
+              imageUrl,
+              key: const Key('result-product-photo-image'),
+              fit: BoxFit.cover,
+              semanticLabel: productName == null
+                  ? 'Product photo'
+                  : 'Product photo for $productName',
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) {
+                  return child;
+                }
+                return Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes == null
+                        ? null
+                        : loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!,
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return _productPhotoError(context);
+              },
+            ),
+    );
+  }
+
+  Widget _productPhotoPlaceholder(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.image_not_supported_rounded,
+            color: BrandColors.acorn,
+            size: 36,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'No product photo available.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _productPhotoError(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.broken_image_rounded,
+            color: BrandColors.acorn,
+            size: 36,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Product photo could not load.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _productSummary(BuildContext context) {
     final headline = productName ?? 'Product not identified';
 
@@ -404,6 +499,8 @@ class ResultScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _productPhotoCard(context),
+          const SizedBox(height: 12),
           _labeledDetail(
             context: context,
             label: 'Product name',
