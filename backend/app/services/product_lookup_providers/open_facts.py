@@ -32,6 +32,12 @@ WEAK_TEXT_VALUES = {
     "see package",
     "see label",
 }
+NON_INGREDIENT_TEXT_PATTERNS = (
+    re.compile(r"^\s*for ingredients[,:\s]+see\b", re.IGNORECASE),
+    re.compile(r"^\s*see\s+(ingredients?\s+)?(?:below|under|inside|behind)\b", re.IGNORECASE),
+    re.compile(r"^\s*see\s+(ingredients?\s+)?(?:bottom|label|packaging|package|wrapper|lid|cap|flap|side|back)\b", re.IGNORECASE),
+    re.compile(r"^\s*ingredients?\s+(?:below|under|inside|behind|on|in)\b", re.IGNORECASE),
+)
 
 
 class OpenFactsProductLookupProvider(ProductLookupProvider):
@@ -186,6 +192,8 @@ class OpenFactsProductLookupProvider(ProductLookupProvider):
         ):
             value = self.clean_text(payload.get(key))
             if value:
+                if self.is_non_ingredient_instruction_text(value):
+                    continue
                 return value, "complete"
 
         ingredients = payload.get("ingredients") or []
@@ -205,6 +213,11 @@ class OpenFactsProductLookupProvider(ProductLookupProvider):
             return ", ".join(normalized_ingredients), "partial"
 
         return None, "missing"
+
+    @staticmethod
+    def is_non_ingredient_instruction_text(value: str) -> bool:
+        normalized_value = value.strip()
+        return any(pattern.search(normalized_value) for pattern in NON_INGREDIENT_TEXT_PATTERNS)
 
 
 class OpenBeautyFactsProductLookupProvider(OpenFactsProductLookupProvider):

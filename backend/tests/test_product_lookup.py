@@ -459,6 +459,36 @@ def test_open_food_facts_provider_falls_back_to_partial_ingredient_list():
     assert product.ingredient_coverage_status == "partial"
 
 
+def test_open_food_facts_provider_treats_packaging_instruction_text_as_missing():
+    provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org",
+            api_key="",
+            user_agent="thats-nuts-tests/1.0 (test@example.com)",
+            timeout_seconds=5.0,
+        ),
+        http_get=lambda *args, **kwargs: FakeHttpResponse(
+            {
+                "status": 1,
+                "product": {
+                    "code": "0016000507661",
+                    "product_name": "Peanut Butter Dark Chocolate",
+                    "brands": "Example Brand",
+                    "ingredients_text": "SEE INGREDIENTS BELOW FLAP",
+                },
+            }
+        ),
+    )
+
+    product = provider.lookup_by_barcode("0016000507661")
+
+    assert product is not None
+    assert product.product_name == "Peanut Butter Dark Chocolate"
+    assert product.ingredient_text is None
+    assert product.ingredient_coverage_status == "missing"
+
+
 def test_product_lookup_service_explains_partial_ingredient_coverage():
     service = ProductLookupService(
         StubProductLookupProvider(
@@ -1024,20 +1054,93 @@ def test_product_lookup_service_returns_not_found_when_provider_ingredients_are_
         product = session.exec(select(Product).where(Product.barcode == "654")).first()
         scan_history = session.exec(select(ScanHistory).where(ScanHistory.product_id == product.id)).all()
 
-    assert response.found is False
-    assert response.source == "not_found"
-    assert response.product is None
+    assert response.found is True
+    assert response.source == "stub"
+    assert response.product is not None
+    assert response.product.product_name == "Sparse Product"
+    assert response.product.brand_name == "Sparse Brand"
+    assert response.product.ingredient_text is None
+    assert response.product.ingredient_coverage_status == "missing"
     assert response.ingredient_text is None
-    assert response.assessment_result is None
+    assert response.assessment_result == "cannot_verify"
     assert response.matched_ingredients == []
-    assert response.explanation == (
-        "No usable product record was found for this barcode from Open Food Facts, Open Beauty "
-        "Facts, or the enrichment fallback."
-    )
+    assert "did not include a usable ingredient list" in response.explanation
     assert product is not None
     assert len(scan_history) == 1
     assert scan_history[0].result_status == "cannot_verify"
     assert scan_history[0].submitted_ingredient_text == ""
+
+
+def test_product_lookup_service_returns_cannot_verify_for_provider_packaging_instruction_text():
+    provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org",
+        ),
+        http_get=lambda *args, **kwargs: FakeHttpResponse(
+            {
+                "status": 1,
+                "product": {
+                    "code": "0016000507661",
+                    "product_name": "Peanut Butter Dark Chocolate",
+                    "brands": "Example Brand",
+                    "ingredients_text": "SEE INGREDIENTS BELOW FLAP",
+                },
+            }
+        ),
+    )
+    service = ProductLookupService(
+        ChainedProductLookupProvider(
+            (
+                provider,
+                RecordingProductLookupProvider("open_beauty_facts", product=None),
+            )
+        )
+    )
+
+    response = service.lookup_by_barcode("0016000507661")
+
+    assert response.found is True
+    assert response.source == "open_food_facts"
+    assert response.product is not None
+    assert response.product.product_name == "Peanut Butter Dark Chocolate"
+    assert response.product.ingredient_text is None
+    assert response.product.ingredient_coverage_status == "missing"
+    assert response.ingredient_text is None
+    assert response.assessment_result == "cannot_verify"
+    assert response.matched_ingredients == []
+    assert "did not include a usable ingredient list" in response.explanation
+
+
+def test_product_lookup_service_still_assesses_valid_provider_ingredient_lists():
+    provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org",
+        ),
+        http_get=lambda *args, **kwargs: FakeHttpResponse(
+            {
+                "status": 1,
+                "product": {
+                    "code": "1234500000000",
+                    "product_name": "Plain Snack",
+                    "brands": "Example Brand",
+                    "ingredients_text": "Corn, Sunflower Oil, Salt",
+                },
+            }
+        ),
+    )
+    service = ProductLookupService(provider)
+
+    response = service.lookup_by_barcode("1234500000000")
+
+    assert response.found is True
+    assert response.source == "open_food_facts"
+    assert response.product is not None
+    assert response.product.ingredient_text == "Corn, Sunflower Oil, Salt"
+    assert response.product.ingredient_coverage_status == "complete"
+    assert response.ingredient_text == "Corn, Sunflower Oil, Salt"
+    assert response.assessment_result == "no_nut_ingredient_found"
 
 
 def test_product_lookup_service_handles_provider_failure_cleanly():
@@ -1154,8 +1257,8 @@ def test_manual_enrichment_updates_cached_product_with_missing_ingredients(temp_
     with Session(get_engine()) as session:
         product = session.exec(select(Product).where(Product.barcode == "654")).first()
 
-    assert initial_lookup.found is False
-    assert initial_lookup.assessment_result is None
+    assert initial_lookup.found is True
+    assert initial_lookup.assessment_result == "cannot_verify"
     assert enriched_lookup.found is True
     assert enriched_lookup.assessment_result == "contains_nut_ingredient"
     assert len(enriched_lookup.matched_ingredients) == 1

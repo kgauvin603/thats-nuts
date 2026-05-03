@@ -127,6 +127,20 @@ class ProductLookupService:
             normalized_barcode,
         )
         lookup_path.append("enrichment:failed")
+
+        if product is not None:
+            logger.info(
+                "Barcode lookup: returning incomplete provider product %s for normalized barcode %s",
+                product.source,
+                normalized_barcode,
+            )
+            return self._build_assessed_response(
+                product,
+                source_explanation=f"Product data was returned by the configured {product.source} provider.",
+                allergy_profile=allergy_profile,
+                lookup_path=lookup_path,
+            )
+
         logger.info(
             "Barcode lookup: final provider/source selected not_found for normalized barcode %s",
             normalized_barcode,

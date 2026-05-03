@@ -19,6 +19,7 @@ class ChainedProductLookupProvider(ProductLookupProvider):
 
     def lookup_by_barcode(self, barcode: str) -> Optional[NormalizedProduct]:
         last_error: Optional[Exception] = None
+        incomplete_product: Optional[NormalizedProduct] = None
 
         for provider in self.providers:
             logger.info(
@@ -61,11 +62,17 @@ class ChainedProductLookupProvider(ProductLookupProvider):
                 )
                 return product
 
+            if incomplete_product is None:
+                incomplete_product = product
+
             logger.info(
                 "Barcode lookup: %s failed for normalized barcode %s; product data was incomplete",
                 provider.provider_name,
                 barcode,
             )
+
+        if incomplete_product is not None:
+            return incomplete_product
 
         if last_error is not None:
             raise ProductLookupProviderError(
