@@ -44,6 +44,7 @@ class MatchedIngredient(BaseModel):
     nut_source: str
     confidence: IngredientConfidence
     reason: str
+    display_name: Optional[str] = None
     detection_basis: Optional[DetectionBasis] = None
     match_strength: Optional[MatchStrength] = None
     review_recommended: Optional[bool] = None

@@ -494,7 +494,7 @@ def build_matched_ingredient_summary(matched_ingredients: List[dict]) -> Optiona
 
     names = []
     for item in matched_ingredients:
-        name = item.get("original_text") or item.get("normalized_name")
+        name = item.get("display_name") or item.get("original_text") or item.get("normalized_name")
         if name and name not in names:
             names.append(name)
 

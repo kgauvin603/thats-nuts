@@ -167,13 +167,13 @@ class ResultScreen extends StatelessWidget {
   String _statusCaption() {
     switch (resultStatus) {
       case 'contains_nut_ingredient':
-        return 'A known nut-linked ingredient was found in the ingredient list.';
+        return 'A nut-linked ingredient was identified in the ingredient list.';
       case 'possible_nut_derived_ingredient':
-        return 'At least one ingredient may be nut-derived or too generic to verify safely.';
+        return 'One or more ingredients may be nut-derived or too generic to verify safely.';
       case 'no_nut_ingredient_found':
-        return 'The checked ingredient list did not match any nut-linked rules.';
+        return 'No nut-linked ingredients were identified in the ingredient list reviewed.';
       default:
-        return 'The available ingredient data was missing, incomplete, or too vague to verify confidently.';
+        return 'A full, usable ingredient list is required to verify this product safely.';
     }
   }
 
@@ -184,9 +184,9 @@ class ResultScreen extends StatelessWidget {
       case 'possible_nut_derived_ingredient':
         return 'Review the flagged ingredients carefully before using this product.';
       case 'no_nut_ingredient_found':
-        return 'No nut-linked ingredients were flagged in the ingredient list that was checked.';
+        return 'This result is based only on the ingredient list that was checked.';
       default:
-        return 'Do not rely on this result alone. Check the full label or manufacturer information.';
+        return 'Check the full label or add a complete ingredient list before relying on this result.';
     }
   }
 
@@ -378,7 +378,7 @@ class ResultScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'If this barcode did not return a usable ingredient list, you can save ingredients from the product label and reuse them on future scans.',
+            'If this barcode did not return a full, usable ingredient list, add the ingredients from the package label so future scans can reuse them.',
             style:
                 Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
           ),
@@ -570,6 +570,8 @@ class ResultScreen extends StatelessWidget {
   Widget _matchedIngredientCard(BuildContext context, MatchedIngredient match) {
     final statusColor = _statusColor();
     final textTheme = Theme.of(context).textTheme;
+    final displayName = _matchedIngredientDisplayName(match);
+    final normalizedLabel = _normalizedIngredientLabel(match);
 
     return Container(
       width: double.infinity,
@@ -604,7 +606,7 @@ class ResultScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      match.originalText,
+                      displayName,
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -617,10 +619,10 @@ class ResultScreen extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    if (match.normalizedName.isNotEmpty) ...[
+                    if (normalizedLabel != null) ...[
                       const SizedBox(height: 4),
                       Text(
-                        'Normalized as ${match.normalizedName}',
+                        'Normalized as $normalizedLabel',
                         style: textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
@@ -641,13 +643,13 @@ class ResultScreen extends StatelessWidget {
                 _detailPill(
                   context: context,
                   icon: Icons.eco_rounded,
-                  label: match.nutSource,
+                  label: _titleCase(match.nutSource.replaceAll('_', ' ')),
                 ),
               if (match.confidence.isNotEmpty)
                 _detailPill(
                   context: context,
                   icon: Icons.analytics_rounded,
-                  label: match.confidence,
+                  label: _confidenceLabel(match.confidence),
                 ),
             ],
           ),
@@ -949,5 +951,60 @@ class ResultScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _matchedIngredientDisplayName(MatchedIngredient match) {
+    final preferred = (match.displayName ?? '').trim();
+    if (preferred.isNotEmpty) {
+      return preferred;
+    }
+
+    final original = match.originalText.trim();
+    if (original.isNotEmpty) {
+      return original;
+    }
+
+    final normalized = match.normalizedName.trim();
+    if (normalized.isNotEmpty) {
+      return normalized;
+    }
+
+    return _titleCase(match.nutSource.replaceAll('_', ' '));
+  }
+
+  String? _normalizedIngredientLabel(MatchedIngredient match) {
+    final normalized = match.normalizedName.trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    if (normalized.toLowerCase() ==
+        _matchedIngredientDisplayName(match).trim().toLowerCase()) {
+      return null;
+    }
+    return normalized;
+  }
+
+  String _confidenceLabel(String confidence) {
+    switch (confidence) {
+      case 'high':
+        return 'High confidence';
+      case 'medium':
+        return 'Review needed';
+      case 'possible':
+        return 'Possible match';
+      default:
+        return _titleCase(confidence);
+    }
+  }
+
+  String _titleCase(String value) {
+    final words =
+        value.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).toList();
+    if (words.isEmpty) {
+      return value;
+    }
+    return words
+        .map((word) => '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
   }
 }

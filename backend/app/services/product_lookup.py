@@ -22,20 +22,17 @@ from app.services.product_lookup_providers.chain import product_lookup_has_usabl
 from app.services.rules_engine import check_ingredient_text
 
 MISSING_INGREDIENTS_EXPLANATION = (
-    "A product record was found, but it did not include a usable ingredient list. This product "
-    "cannot be verified until a full ingredient list is available."
+    "A full, usable ingredient list is required to verify this product safely."
 )
 PARTIAL_INGREDIENT_COVERAGE_EXPLANATION = (
-    "Only part of the ingredient list was available, so this assessment may be incomplete and "
-    "could miss nut-related ingredients that were not returned by the product record."
+    "Only part of the ingredient list was available, so this result may be incomplete."
 )
 PROVIDER_FAILURE_EXPLANATION = (
     "Product lookup could not be completed because the configured provider did not return "
     "reliable product data for this barcode. Try again in a moment or enter ingredients manually."
 )
 PRODUCT_NOT_FOUND_EXPLANATION = (
-    "No usable product record was found for this barcode from Open Food Facts, Open Beauty "
-    "Facts, or the enrichment fallback."
+    "No product record with a usable ingredient list was found for this barcode."
 )
 MANUAL_ENRICHMENT_EXPLANATION = (
     "Product data was saved from a locally submitted ingredient list for this barcode."
@@ -265,7 +262,10 @@ class ProductLookupService:
             matched_ingredients=[],
             ruleset_version=assessment.get("ruleset_version"),
             unknown_terms=assessment.get("unknown_terms", []),
-            explanation=f"{source_explanation} {MISSING_INGREDIENTS_EXPLANATION}",
+            explanation=(
+                f"{source_explanation} This record did not include a full, usable ingredient list. "
+                "A full, usable ingredient list is required to verify this product safely."
+            ),
         )
 
     @staticmethod

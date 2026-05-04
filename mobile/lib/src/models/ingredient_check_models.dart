@@ -14,7 +14,8 @@ class IngredientCheckResult {
     return IngredientCheckResult(
       status: json['status'] as String? ?? 'cannot_verify',
       matchedIngredients: items
-          .map((item) => MatchedIngredient.fromJson(item as Map<String, dynamic>))
+          .map((item) =>
+              MatchedIngredient.fromJson(item as Map<String, dynamic>))
           .toList(),
       explanation: json['explanation'] as String? ?? 'No explanation returned.',
     );
@@ -28,6 +29,7 @@ class MatchedIngredient {
     required this.nutSource,
     required this.confidence,
     required this.reason,
+    this.displayName,
   });
 
   final String originalText;
@@ -35,6 +37,7 @@ class MatchedIngredient {
   final String nutSource;
   final String confidence;
   final String reason;
+  final String? displayName;
 
   factory MatchedIngredient.fromJson(Map<String, dynamic> json) {
     return MatchedIngredient(
@@ -43,6 +46,7 @@ class MatchedIngredient {
       nutSource: json['nut_source'] as String? ?? '',
       confidence: json['confidence'] as String? ?? '',
       reason: json['reason'] as String? ?? '',
+      displayName: json['display_name'] as String?,
     );
   }
 }

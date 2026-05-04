@@ -56,6 +56,7 @@ def test_detects_nutella_open_food_facts_french_hazelnut_text():
     assert len(result["matched_ingredients"]) == 1
     match = result["matched_ingredients"][0]
     assert match["original_text"] == "NOISETTES 13%"
+    assert match["display_name"] == "NOISETTES 13%"
     assert match["nut_source"] == "hazelnut"
     assert match["confidence"] == "high"
 
@@ -102,6 +103,9 @@ def test_returns_no_match_for_simple_non_nut_list():
     assert result["status"] == "no_nut_ingredient_found"
     assert result["matched_ingredients"] == []
     assert result["unknown_terms"] == []
+    assert result["explanation"] == (
+        "No nut-linked ingredients were identified in the ingredient list provided."
+    )
 
 
 def test_surfaces_unknown_terms_for_future_ruleset_expansion():
@@ -218,30 +222,24 @@ def test_request_model_accepts_optional_allergy_profile():
 def test_returns_cannot_verify_for_blank_input():
     result = check_ingredient_text("   ")
     assert result["status"] == "cannot_verify"
-    assert (
-        result["explanation"]
-        == "The ingredient input could not be verified because it was blank, incomplete, or not usable "
-        "as an ingredient list."
+    assert result["explanation"] == (
+        "A full, usable ingredient list is required to verify this product safely."
     )
 
 
 def test_returns_cannot_verify_for_placeholder_input():
     result = check_ingredient_text("N/A")
     assert result["status"] == "cannot_verify"
-    assert (
-        result["explanation"]
-        == "The ingredient input could not be verified because it was blank, incomplete, or not usable "
-        "as an ingredient list."
+    assert result["explanation"] == (
+        "A full, usable ingredient list is required to verify this product safely."
     )
 
 
 def test_returns_cannot_verify_for_punctuation_only_input():
     result = check_ingredient_text("??? , !!!")
     assert result["status"] == "cannot_verify"
-    assert (
-        result["explanation"]
-        == "The ingredient input could not be verified because it was blank, incomplete, or not usable "
-        "as an ingredient list."
+    assert result["explanation"] == (
+        "A full, usable ingredient list is required to verify this product safely."
     )
 
 
@@ -249,6 +247,16 @@ def test_returns_cannot_verify_for_all_ambiguous_input():
     result = check_ingredient_text("Fragrance, Parfum")
     assert result["status"] == "cannot_verify"
     assert result["explanation"] == (
-        "The ingredient input could not be verified because every parsed ingredient was too vague "
-        "to assess confidently."
+        "The available ingredient list is too vague to verify safely. A full, usable ingredient list is required."
+    )
+
+
+def test_matched_display_name_removes_broken_parenthetical_artifacts():
+    result = check_ingredient_text("Water, peanut butter (peanuts (peanut), glycerin")
+
+    assert result["status"] == "contains_nut_ingredient"
+    assert result["matched_ingredients"][0]["original_text"] == "peanut butter (peanuts (peanut)"
+    assert result["matched_ingredients"][0]["display_name"] == "peanut butter"
+    assert result["explanation"] == (
+        "Detected a peanut-linked ingredient in this product: peanut butter."
     )

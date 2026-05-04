@@ -22,14 +22,17 @@ void main() {
       ),
       ingredientText: 'water, sweet almond oil, glycerin',
       assessmentResult: 'contains_nut_ingredient',
-      explanation: 'Matched sweet almond oil.',
+      explanation:
+          'Detected an almond-linked ingredient in this product: sweet almond oil.',
       matchedIngredients: [
         MatchedIngredient(
-          originalText: 'sweet almond oil',
+          originalText: 'sweet almond oil) (almond)',
           normalizedName: 'almond oil',
           nutSource: 'almond',
           confidence: 'high',
-          reason: 'Direct almond-derived ingredient match.',
+          displayName: 'sweet almond oil',
+          reason:
+              'Matched to known almond-linked ingredient terms: almond oil.',
         ),
       ],
     );
@@ -73,9 +76,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Flagged Ingredients'), findsOneWidget);
     expect(find.text('sweet almond oil'), findsOneWidget);
+    expect(find.text('sweet almond oil) (almond)'), findsNothing);
     expect(find.text('Normalized as almond oil'), findsOneWidget);
-    expect(find.text('almond'), findsOneWidget);
-    expect(find.text('high'), findsOneWidget);
+    expect(find.text('Almond'), findsOneWidget);
+    expect(find.text('High confidence'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -500));
     await tester.pumpAndSettle();
@@ -143,7 +147,8 @@ void main() {
       ),
       ingredientText: 'Sucre, huile de palme',
       assessmentResult: 'no_nut_ingredient_found',
-      explanation: 'No nut-linked ingredients were flagged.',
+      explanation:
+          'No nut-linked ingredients were identified in the ingredient list provided.',
       matchedIngredients: [],
     );
 
@@ -171,7 +176,8 @@ void main() {
       (WidgetTester tester) async {
     const result = IngredientCheckResult(
       status: 'cannot_verify',
-      explanation: 'No ingredient list was available.',
+      explanation:
+          'A full, usable ingredient list is required to verify this product safely.',
       matchedIngredients: [],
     );
 
@@ -190,7 +196,7 @@ void main() {
     expect(find.text('What to do next'), findsOneWidget);
     expect(
       find.text(
-        'The available ingredient data was missing, incomplete, or too vague to verify confidently.',
+        'A full, usable ingredient list is required to verify this product safely.',
       ),
       findsOneWidget,
     );
@@ -217,7 +223,8 @@ void main() {
       ingredientText: null,
       assessmentResult: null,
       matchedIngredients: [],
-      explanation: 'No product record was found.',
+      explanation:
+          'No product record with a usable ingredient list was found for this barcode.',
     );
 
     await tester.pumpWidget(
@@ -248,6 +255,54 @@ void main() {
     expect(tapped, isTrue);
   });
 
+  testWidgets(
+      'shows barcode enrichment fallback action for cannot verify lookup',
+      (WidgetTester tester) async {
+    var tapped = false;
+    const result = ProductLookupResult(
+      found: true,
+      product: LookupProduct(
+        barcode: '0016000507661',
+        brandName: 'Test Brand',
+        productName: 'Example Product',
+        imageUrl: null,
+        ingredientCoverageStatus: 'missing',
+        source: 'open_food_facts',
+      ),
+      ingredientText: null,
+      assessmentResult: 'cannot_verify',
+      matchedIngredients: [],
+      explanation:
+          'Product data was returned by the configured open_food_facts provider. This record did not include a full, usable ingredient list. A full, usable ingredient list is required to verify this product safely.',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResultScreen.forProductLookup(
+          barcode: '0016000507661',
+          result: result,
+          fallbackActionLabel: 'Add Ingredients for This Barcode',
+          onFallbackAction: (context) async {
+            tapped = true;
+          },
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('result-fallback-action')),
+      250,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('result-fallback-action')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('result-fallback-action')));
+    await tester.pump();
+
+    expect(tapped, isTrue);
+  });
+
   testWidgets('shows manual enrichment label for enriched barcode results',
       (WidgetTester tester) async {
     const result = ProductLookupResult(
@@ -262,7 +317,8 @@ void main() {
       ),
       ingredientText: 'water, sweet almond oil, glycerin',
       assessmentResult: 'contains_nut_ingredient',
-      explanation: 'Matched sweet almond oil.',
+      explanation:
+          'Detected an almond-linked ingredient in this product: sweet almond oil.',
       matchedIngredients: [],
     );
 

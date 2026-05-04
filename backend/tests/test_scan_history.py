@@ -37,7 +37,7 @@ def test_recent_scan_history_returns_manual_and_barcode_checks(temp_database):
     assert newest_item.assessment_status == "contains_nut_ingredient"
     assert newest_item.matched_ingredient_summary == "Prunus Amygdalus Dulcis Oil"
     assert newest_item.created_at is not None
-    assert "Detected 1 nut-linked ingredient" in newest_item.explanation
+    assert "Detected an almond-linked ingredient in this product:" in newest_item.explanation
 
     assert older_item.scan_type == "manual_ingredient_check"
     assert older_item.barcode is None
@@ -48,7 +48,7 @@ def test_recent_scan_history_returns_manual_and_barcode_checks(temp_database):
     assert older_item.assessment_status == "contains_nut_ingredient"
     assert older_item.matched_ingredient_summary == "Prunus Amygdalus Dulcis Oil"
     assert older_item.created_at is not None
-    assert "Detected 1 nut-linked ingredient" in older_item.explanation
+    assert "Detected an almond-linked ingredient in this product:" in older_item.explanation
 
 
 def test_recent_scan_history_respects_limit(temp_database):
@@ -88,8 +88,7 @@ def test_recent_scan_history_includes_unsuccessful_barcode_lookups(temp_database
     assert item.submitted_ingredient_text is None
     assert item.assessment_status == "cannot_verify"
     assert item.explanation == (
-        "No usable product record was found for this barcode from Open Food Facts, Open Beauty "
-        "Facts, or the enrichment fallback."
+        "No product record with a usable ingredient list was found for this barcode."
     )
 
 

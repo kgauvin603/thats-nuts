@@ -23,7 +23,12 @@ class ProductLookupResult {
     if (!found) {
       return true;
     }
-    return assessmentResult == 'cannot_verify' && !hasUsableIngredientText;
+    if (assessmentResult == 'cannot_verify') {
+      return true;
+    }
+    return !hasUsableIngredientText &&
+        (product?.ingredientCoverageStatus == 'missing' ||
+            product?.ingredientCoverageStatus == 'unknown');
   }
 
   factory ProductLookupResult.fromJson(Map<String, dynamic> json) {
