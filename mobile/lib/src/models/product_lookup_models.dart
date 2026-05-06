@@ -4,18 +4,24 @@ class ProductLookupResult {
   const ProductLookupResult({
     required this.found,
     required this.product,
+    this.source = 'unknown',
     required this.ingredientText,
     required this.assessmentResult,
     required this.matchedIngredients,
     required this.explanation,
+    this.productQualityStatus,
+    this.providerWarnings = const [],
   });
 
   final bool found;
   final LookupProduct? product;
+  final String source;
   final String? ingredientText;
   final String? assessmentResult;
   final List<MatchedIngredient> matchedIngredients;
   final String explanation;
+  final String? productQualityStatus;
+  final List<String> providerWarnings;
 
   bool get canAddIngredientsFallback {
     final hasUsableIngredientText =
@@ -38,6 +44,7 @@ class ProductLookupResult {
     return ProductLookupResult(
       found: json['found'] as bool? ?? false,
       product: productJson == null ? null : LookupProduct.fromJson(productJson),
+      source: json['source'] as String? ?? 'unknown',
       ingredientText: json['ingredient_text'] as String?,
       assessmentResult: json['assessment_result'] as String?,
       matchedIngredients: items
@@ -45,6 +52,10 @@ class ProductLookupResult {
               MatchedIngredient.fromJson(item as Map<String, dynamic>))
           .toList(),
       explanation: json['explanation'] as String? ?? 'No explanation returned.',
+      productQualityStatus: json['product_quality_status'] as String?,
+      providerWarnings: (json['provider_warnings'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
     );
   }
 }

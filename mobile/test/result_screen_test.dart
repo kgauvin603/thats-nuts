@@ -339,4 +339,48 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('shows a calm source warning for inconsistent provider records',
+      (WidgetTester tester) async {
+    const result = ProductLookupResult(
+      found: false,
+      product: null,
+      source: 'open_beauty_facts_inconsistent',
+      ingredientText: null,
+      assessmentResult: 'cannot_verify',
+      matchedIngredients: [],
+      explanation:
+          'A product record was found, but the lookup source returned inconsistent product details. Please verify the physical label or enter the ingredients manually.',
+      productQualityStatus: 'inconsistent',
+      providerWarnings: [
+        'The lookup source mixed cosmetic categories with food-related categories for this barcode.',
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResultScreen.forProductLookup(
+          barcode: '0041167055106',
+          result: result,
+          fallbackActionLabel: 'Add Ingredients for This Barcode',
+        ),
+      ),
+    );
+
+    expect(find.text('SOURCE WARNING'), findsOneWidget);
+    expect(find.text('Source details need review'), findsAtLeastNWidgets(1));
+    await tester.scrollUntilVisible(
+      find.text('Source Warning'),
+      250,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Source Warning'), findsOneWidget);
+    expect(
+      find.text(
+        'The lookup source mixed cosmetic categories with food-related categories for this barcode.',
+      ),
+      findsOneWidget,
+    );
+  });
 }

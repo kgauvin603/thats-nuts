@@ -21,6 +21,8 @@ class ResultScreen extends StatelessWidget {
     this.barcode,
     this.productSource,
     this.coverageStatus,
+    this.productQualityStatus,
+    this.providerWarnings = const [],
     this.fallbackActionLabel,
     this.onFallbackAction,
   });
@@ -62,8 +64,10 @@ class ResultScreen extends StatelessWidget {
       barcode: result.product?.barcode.isNotEmpty == true
           ? result.product?.barcode
           : barcode,
-      productSource: result.product?.source,
+      productSource: result.product?.source ?? result.source,
       coverageStatus: result.product?.ingredientCoverageStatus,
+      productQualityStatus: result.productQualityStatus,
+      providerWarnings: result.providerWarnings,
       fallbackActionLabel: fallbackActionLabel,
       onFallbackAction: onFallbackAction,
     );
@@ -81,6 +85,8 @@ class ResultScreen extends StatelessWidget {
   final String? barcode;
   final String? productSource;
   final String? coverageStatus;
+  final String? productQualityStatus;
+  final List<String> providerWarnings;
   final String? fallbackActionLabel;
   final ResultScreenAction? onFallbackAction;
 
@@ -97,6 +103,11 @@ class ResultScreen extends StatelessWidget {
       _isLookupResult &&
       (productSource == 'manual_entry' || productSource == 'text_scan');
 
+  bool get _hasProviderQualityWarning =>
+      productQualityStatus == 'inconsistent' ||
+      providerWarnings.isNotEmpty ||
+      (productSource?.endsWith('_inconsistent') ?? false);
+
   int get _matchCount => matchedIngredients.length;
 
   Color _statusColor() {
@@ -108,7 +119,9 @@ class ResultScreen extends StatelessWidget {
       case 'no_nut_ingredient_found':
         return BrandColors.success;
       default:
-        return BrandColors.harvest;
+        return _hasProviderQualityWarning
+            ? BrandColors.warning
+            : BrandColors.harvest;
     }
   }
 
@@ -121,7 +134,9 @@ class ResultScreen extends StatelessWidget {
       case 'no_nut_ingredient_found':
         return BrandColors.successSurface;
       default:
-        return BrandColors.neutralSurface;
+        return _hasProviderQualityWarning
+            ? BrandColors.warningSurface
+            : BrandColors.neutralSurface;
     }
   }
 
@@ -134,7 +149,9 @@ class ResultScreen extends StatelessWidget {
       case 'no_nut_ingredient_found':
         return Icons.check_circle_rounded;
       default:
-        return Icons.help_outline_rounded;
+        return _hasProviderQualityWarning
+            ? Icons.info_outline_rounded
+            : Icons.help_outline_rounded;
     }
   }
 
@@ -147,7 +164,7 @@ class ResultScreen extends StatelessWidget {
       case 'no_nut_ingredient_found':
         return 'Clear';
       default:
-        return 'Review first';
+        return _hasProviderQualityWarning ? 'Source warning' : 'Review first';
     }
   }
 
@@ -160,7 +177,9 @@ class ResultScreen extends StatelessWidget {
       case 'no_nut_ingredient_found':
         return 'No nut ingredients found';
       default:
-        return 'Cannot verify';
+        return _hasProviderQualityWarning
+            ? 'Source details need review'
+            : 'Cannot verify';
     }
   }
 
@@ -173,7 +192,9 @@ class ResultScreen extends StatelessWidget {
       case 'no_nut_ingredient_found':
         return 'No nut-linked ingredients were identified in the ingredient list reviewed.';
       default:
-        return 'A full, usable ingredient list is required to verify this product safely.';
+        return _hasProviderQualityWarning
+            ? 'The lookup source returned inconsistent product details, so this result should not be treated as verified.'
+            : 'A full, usable ingredient list is required to verify this product safely.';
     }
   }
 
@@ -186,7 +207,9 @@ class ResultScreen extends StatelessWidget {
       case 'no_nut_ingredient_found':
         return 'This result is based only on the ingredient list that was checked.';
       default:
-        return 'Check the full label or add a complete ingredient list before relying on this result.';
+        return _hasProviderQualityWarning
+            ? 'Verify the physical label and, if needed, enter the ingredients manually for a safer review.'
+            : 'Check the full label or add a complete ingredient list before relying on this result.';
     }
   }
 
@@ -397,6 +420,35 @@ class ResultScreen extends StatelessWidget {
               label: Text(fallbackActionLabel!),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _providerWarningCard(BuildContext context) {
+    return _sectionCard(
+      context: context,
+      title: 'Source Warning',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'The lookup provider returned inconsistent product details for this barcode.',
+            style:
+                Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
+          ),
+          for (final warning in providerWarnings) ...[
+            const SizedBox(height: 10),
+            _labeledDetail(
+              context: context,
+              label: 'Provider note',
+              value: warning,
+              icon: Icons.report_gmailerrorred_rounded,
+              backgroundColor: BrandColors.warningSurface,
+              borderColor: BrandColors.warning.withValues(alpha: 0.32),
+              labelColor: BrandColors.warning,
+            ),
+          ],
         ],
       ),
     );
@@ -805,6 +857,10 @@ class ResultScreen extends StatelessWidget {
           if (_isManualEnrichment) ...[
             const SizedBox(height: 18),
             _manualEnrichmentCard(context),
+          ],
+          if (_hasProviderQualityWarning) ...[
+            const SizedBox(height: 18),
+            _providerWarningCard(context),
           ],
           const SizedBox(height: 18),
           _sectionCard(

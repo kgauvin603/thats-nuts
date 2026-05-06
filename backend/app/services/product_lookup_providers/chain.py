@@ -20,6 +20,7 @@ class ChainedProductLookupProvider(ProductLookupProvider):
     def lookup_by_barcode(self, barcode: str) -> Optional[NormalizedProduct]:
         last_error: Optional[Exception] = None
         incomplete_product: Optional[NormalizedProduct] = None
+        inconsistent_product: Optional[NormalizedProduct] = None
 
         for provider in self.providers:
             logger.info(
@@ -54,6 +55,16 @@ class ChainedProductLookupProvider(ProductLookupProvider):
                 )
                 continue
 
+            if not product_lookup_is_quality_acceptable(product):
+                if inconsistent_product is None:
+                    inconsistent_product = product
+                logger.info(
+                    "Barcode lookup: %s returned inconsistent product data for normalized barcode %s",
+                    provider.provider_name,
+                    barcode,
+                )
+                continue
+
             if _has_usable_ingredient_text(product):
                 logger.info(
                     "Barcode lookup: %s succeeded for normalized barcode %s",
@@ -74,6 +85,9 @@ class ChainedProductLookupProvider(ProductLookupProvider):
         if incomplete_product is not None:
             return incomplete_product
 
+        if inconsistent_product is not None:
+            return inconsistent_product
+
         if last_error is not None:
             raise ProductLookupProviderError(
                 "All configured lookup providers failed before returning usable product data."
@@ -89,3 +103,7 @@ def _has_usable_ingredient_text(product: NormalizedProduct) -> bool:
 
 def product_lookup_has_usable_ingredient_text(product: NormalizedProduct) -> bool:
     return _has_usable_ingredient_text(product)
+
+
+def product_lookup_is_quality_acceptable(product: NormalizedProduct) -> bool:
+    return product.product_quality_status != "inconsistent"

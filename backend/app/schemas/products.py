@@ -7,6 +7,7 @@ from app.schemas.ingredients import AllergyProfile, IngredientCheckStatus, Match
 
 IngredientCoverageStatus = Literal["complete", "partial", "missing", "unknown"]
 ProductEnrichmentSource = Literal["manual_entry", "text_scan"]
+ProductQualityStatus = Literal["verified", "inconsistent"]
 
 
 class ProductLookupRequest(BaseModel):
@@ -31,6 +32,8 @@ class NormalizedProduct(BaseModel):
     ingredient_text: Optional[str] = None
     ingredient_coverage_status: IngredientCoverageStatus = "unknown"
     source: str
+    product_quality_status: Optional[ProductQualityStatus] = None
+    provider_warnings: List[str] = Field(default_factory=list)
 
 
 class ProductLookupResponse(BaseModel):
@@ -44,6 +47,8 @@ class ProductLookupResponse(BaseModel):
     explanation: str
     ruleset_version: Optional[str] = None
     unknown_terms: List[str] = Field(default_factory=list)
+    product_quality_status: Optional[ProductQualityStatus] = None
+    provider_warnings: List[str] = Field(default_factory=list)
 
 
 class SavedProductEntry(BaseModel):

@@ -330,6 +330,66 @@ def test_open_beauty_facts_provider_normalizes_provider_payload():
     assert "ingredients_text_from_image" in captured["params"]["fields"]
 
 
+def test_open_beauty_facts_provider_rejects_mixed_food_and_cosmetic_record():
+    provider = OpenBeautyFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_beauty_facts",
+            base_url="https://world.openbeautyfacts.org",
+        ),
+        http_get=lambda *args, **kwargs: FakeHttpResponse(
+            {
+                "status": 1,
+                "product": {
+                    "code": "0041167055106",
+                    "product_name": "GOLD BOND ULTIMATE healing hand cream Net wt 3 oz (85 9)",
+                    "brands": "Three sisters cafe",
+                    "ingredients_text": "cosmetic hand cream ingredients",
+                    "image_front_url": "https://images.openbeautyfacts.org/images/products/004/116/705/5106/front_en.12.400.jpg",
+                    "categories": "Non food products, Sandwiches, Open Beauty Facts, Cosmetic products",
+                    "categories_tags": [
+                        "en:non-food-products",
+                        "en:sandwiches",
+                        "en:open-beauty-facts",
+                        "en:cosmetic-products",
+                    ],
+                },
+            }
+        ),
+    )
+
+    product = provider.lookup_by_barcode("0041167055106")
+
+    assert product is not None
+    assert product.product_quality_status == "inconsistent"
+    assert product.provider_warnings == [
+        "The lookup source mixed cosmetic categories with food-related categories for this barcode."
+    ]
+
+
+def test_open_food_facts_provider_marks_different_product_type_as_inconsistent():
+    provider = OpenFoodFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_food_facts",
+            base_url="https://world.openfoodfacts.org",
+        ),
+        http_get=lambda *args, **kwargs: FakeHttpResponse(
+            {
+                "status": 0,
+                "status_verbose": "product found with a different product type: beauty",
+            }
+        ),
+    )
+
+    product = provider.lookup_by_barcode("0041167055106")
+
+    assert product is not None
+    assert product.barcode == "0041167055106"
+    assert product.product_quality_status == "inconsistent"
+    assert product.provider_warnings == [
+        "The lookup source reported this barcode under a different product type: beauty."
+    ]
+
+
 def test_open_beauty_facts_provider_uses_required_default_user_agent():
     captured = {}
 
@@ -398,6 +458,8 @@ def test_open_food_facts_provider_status_one_returns_product_source():
     assert product.brand_name == "Nutella"
     assert product.source == "open_food_facts"
     assert product.ingredient_text == "Sugar, Palm Oil, Hazelnuts, Cocoa"
+    assert product.product_quality_status == "verified"
+    assert product.provider_warnings == []
 
 
 def test_open_food_facts_empty_non_json_response_falls_through_cleanly():
@@ -514,6 +576,81 @@ def test_product_lookup_service_explains_partial_ingredient_coverage():
         "Only part of the ingredient list was available, so this result may be incomplete. "
         "One ingredient may be nut-derived or too generic to verify confidently: Vegetable Oil."
     )
+
+
+def test_product_lookup_service_rejects_inconsistent_provider_record_and_prompts_manual_review():
+    service = ProductLookupService(
+        RecordingProductLookupProvider(
+            "open_beauty_facts",
+            product={
+                "barcode": "0041167055106",
+                "brand_name": "Three sisters cafe",
+                "product_name": "GOLD BOND ULTIMATE healing hand cream Net wt 3 oz (85 9)",
+                "image_url": "https://images.openbeautyfacts.org/images/products/004/116/705/5106/front_en.12.400.jpg",
+                "ingredient_text": "cosmetic hand cream ingredients",
+                "ingredient_coverage_status": "complete",
+                "source": "open_beauty_facts",
+                "product_quality_status": "inconsistent",
+                "provider_warnings": [
+                    "The lookup source mixed cosmetic categories with food-related categories for this barcode."
+                ],
+            },
+        )
+    )
+
+    response = service.lookup_by_barcode("0041167055106")
+
+    assert response.found is False
+    assert response.source == "open_beauty_facts_inconsistent"
+    assert response.product is None
+    assert response.assessment_result == "cannot_verify"
+    assert response.matched_ingredients == []
+    assert response.product_quality_status == "inconsistent"
+    assert response.provider_warnings == [
+        "The lookup source mixed cosmetic categories with food-related categories for this barcode."
+    ]
+    assert response.explanation == (
+        "A product record was found, but the lookup source returned inconsistent product details. "
+        "Please verify the physical label or enter the ingredients manually."
+    )
+    assert response.lookup_path == [
+        "normalized:0041167055106",
+        "open_beauty_facts:attempted",
+        "open_beauty_facts:inconsistent",
+        "enrichment:attempted",
+        "enrichment:failed",
+    ]
+
+
+def test_open_beauty_facts_provider_normal_cosmetic_record_still_passes():
+    provider = OpenBeautyFactsProductLookupProvider(
+        settings=ProductLookupProviderSettings(
+            provider_name="open_beauty_facts",
+            base_url="https://world.openbeautyfacts.org",
+        ),
+        http_get=lambda *args, **kwargs: FakeHttpResponse(
+            {
+                "status": 1,
+                "product": {
+                    "code": "3701129800015",
+                    "product_name": "Nourishing Face Oil",
+                    "brands": "Beauty Brand",
+                    "ingredients_text": "Helianthus Annuus Seed Oil, Juglans Regia Seed Oil",
+                    "categories": "Cosmetic products, Face oils",
+                    "categories_tags": [
+                        "en:cosmetic-products",
+                        "en:face-oils",
+                    ],
+                },
+            }
+        ),
+    )
+
+    product = provider.lookup_by_barcode("3701129800015")
+
+    assert product is not None
+    assert product.product_quality_status == "verified"
+    assert product.provider_warnings == []
 
 
 def test_open_food_facts_provider_retries_transient_request_failure():

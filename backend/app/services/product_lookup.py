@@ -19,6 +19,7 @@ from app.services.product_lookup_providers import (
     build_provider_settings,
 )
 from app.services.product_lookup_providers.chain import product_lookup_has_usable_ingredient_text
+from app.services.product_lookup_providers.chain import product_lookup_is_quality_acceptable
 from app.services.rules_engine import check_ingredient_text
 
 MISSING_INGREDIENTS_EXPLANATION = (
@@ -33,6 +34,10 @@ PROVIDER_FAILURE_EXPLANATION = (
 )
 PRODUCT_NOT_FOUND_EXPLANATION = (
     "No product record with a usable ingredient list was found for this barcode."
+)
+INCONSISTENT_PROVIDER_EXPLANATION = (
+    "A product record was found, but the lookup source returned inconsistent product details. "
+    "Please verify the physical label or enter the ingredients manually."
 )
 MANUAL_ENRICHMENT_EXPLANATION = (
     "Product data was saved from a locally submitted ingredient list for this barcode."
@@ -76,7 +81,11 @@ class ProductLookupService:
             product = None
             provider_failed = True
         lookup_path.extend(self._build_provider_lookup_path(product, provider_failed))
-        if product and product_lookup_has_usable_ingredient_text(product):
+        if (
+            product
+            and product_lookup_is_quality_acceptable(product)
+            and product_lookup_has_usable_ingredient_text(product)
+        ):
             lookup_path.append("enrichment:skipped")
             logger.info(
                 "Barcode lookup: enrichment not attempted for normalized barcode %s",
@@ -125,6 +134,30 @@ class ProductLookupService:
         )
         lookup_path.append("enrichment:failed")
 
+        if product is not None and not product_lookup_is_quality_acceptable(product):
+            logger.info(
+                "Barcode lookup: returning inconsistent provider record for normalized barcode %s",
+                normalized_barcode,
+            )
+            self._persist_unsuccessful_lookup(
+                normalized_barcode,
+                INCONSISTENT_PROVIDER_EXPLANATION,
+                allergy_profile=allergy_profile,
+                product_id=None,
+            )
+            return ProductLookupResponse(
+                found=False,
+                source=f"{product.source}_inconsistent",
+                lookup_path=lookup_path,
+                product=None,
+                ingredient_text=None,
+                assessment_result="cannot_verify",
+                matched_ingredients=[],
+                explanation=INCONSISTENT_PROVIDER_EXPLANATION,
+                product_quality_status=product.product_quality_status,
+                provider_warnings=product.provider_warnings,
+            )
+
         if product is not None:
             logger.info(
                 "Barcode lookup: returning incomplete provider product %s for normalized barcode %s",
@@ -163,6 +196,8 @@ class ProductLookupService:
             assessment_result=None,
             matched_ingredients=[],
             explanation=explanation,
+            product_quality_status=product.product_quality_status if product else None,
+            provider_warnings=product.provider_warnings if product else [],
         )
 
     def enrich_barcode_with_ingredients(
@@ -232,6 +267,8 @@ class ProductLookupService:
                 matched_ingredients=assessment["matched_ingredients"],
                 ruleset_version=assessment.get("ruleset_version"),
                 unknown_terms=assessment.get("unknown_terms", []),
+                product_quality_status=product.product_quality_status,
+                provider_warnings=product.provider_warnings,
                 explanation=self._build_assessment_explanation(
                     source_explanation=source_explanation,
                     coverage_status=product.ingredient_coverage_status,
@@ -262,6 +299,8 @@ class ProductLookupService:
             matched_ingredients=[],
             ruleset_version=assessment.get("ruleset_version"),
             unknown_terms=assessment.get("unknown_terms", []),
+            product_quality_status=product.product_quality_status,
+            provider_warnings=product.provider_warnings,
             explanation=(
                 f"{source_explanation} This record did not include a full, usable ingredient list. "
                 "A full, usable ingredient list is required to verify this product safely."
@@ -344,7 +383,21 @@ class ProductLookupService:
         provider_names = self._provider_names()
         path = []
 
-        if provider_failed or product is None or not product_lookup_has_usable_ingredient_text(product):
+        if provider_failed or product is None:
+            for provider_name in provider_names:
+                path.extend((f"{provider_name}:attempted", f"{provider_name}:failed"))
+            return path
+
+        if not product_lookup_is_quality_acceptable(product):
+            for provider_name in provider_names:
+                path.append(f"{provider_name}:attempted")
+                if provider_name == product.source:
+                    path.append(f"{provider_name}:inconsistent")
+                else:
+                    path.append(f"{provider_name}:failed")
+            return path
+
+        if not product_lookup_has_usable_ingredient_text(product):
             for provider_name in provider_names:
                 path.extend((f"{provider_name}:attempted", f"{provider_name}:failed"))
             return path

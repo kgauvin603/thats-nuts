@@ -19,7 +19,8 @@ OPEN_FACTS_FIELDS = (
     "brands,brands_tags,ingredients_text,ingredients_text_en,"
     "ingredients_text_with_allergens,ingredients_text_with_allergens_en,"
     "ingredients_text_from_image,ingredients_text_from_image_en,"
-    "image_front_url,image_front_small_url,image_url,ingredients"
+    "image_front_url,image_front_small_url,image_url,ingredients,"
+    "categories,categories_tags"
 )
 WEAK_TEXT_VALUES = {
     "",
@@ -38,6 +39,29 @@ NON_INGREDIENT_TEXT_PATTERNS = (
     re.compile(r"^\s*see\s+(ingredients?\s+)?(?:bottom|label|packaging|package|wrapper|lid|cap|flap|side|back)\b", re.IGNORECASE),
     re.compile(r"^\s*ingredients?\s+(?:below|under|inside|behind|on|in)\b", re.IGNORECASE),
 )
+COSMETIC_CATEGORY_MARKERS = {
+    "cosmetic products",
+    "cosmetic product",
+    "cosmetics",
+    "non food products",
+    "non-food products",
+    "beauty",
+    "open beauty facts",
+    "open-beauty-facts",
+}
+FOOD_CATEGORY_MARKERS = {
+    "food",
+    "foods",
+    "sandwich",
+    "sandwiches",
+    "snack",
+    "snacks",
+    "beverage",
+    "beverages",
+    "meal",
+    "meals",
+}
+WRONG_PRODUCT_TYPE_MARKER = "product found with a different product type: beauty"
 
 
 class OpenFactsProductLookupProvider(ProductLookupProvider):
@@ -55,7 +79,7 @@ class OpenFactsProductLookupProvider(ProductLookupProvider):
         provider_payload = self.fetch_provider_payload(barcode)
         if not provider_payload:
             return None
-        return self.normalize_payload(provider_payload)
+        return self.normalize_payload(provider_payload, barcode=barcode)
 
     def fetch_provider_payload(self, barcode: str) -> Optional[dict]:
         payload = None
@@ -125,21 +149,88 @@ class OpenFactsProductLookupProvider(ProductLookupProvider):
         if payload is None:
             return None
         if payload.get("status") == 0:
+            status_verbose = self.clean_text(payload.get("status_verbose")) or ""
+            if WRONG_PRODUCT_TYPE_MARKER in status_verbose.lower():
+                return {
+                    "status": 0,
+                    "status_verbose": status_verbose,
+                    "product": {
+                        "code": barcode,
+                    },
+                }
             return None
-        return payload.get("product")
+        return payload
 
-    def normalize_payload(self, payload: dict) -> NormalizedProduct:
-        ingredient_text, coverage_status = self.normalize_ingredient_text(payload)
+    def normalize_payload(self, payload: dict, barcode: Optional[str] = None) -> NormalizedProduct:
+        product_payload = payload.get("product") if isinstance(payload.get("product"), dict) else payload
+        ingredient_text, coverage_status = self.normalize_ingredient_text(product_payload)
+        warnings = self.build_provider_warnings(payload, product_payload)
+        quality_status = "inconsistent" if warnings else "verified"
 
         return NormalizedProduct(
-            barcode=self.clean_text(payload.get("code")) or "",
-            brand_name=self.normalize_brand_name(payload),
-            product_name=self.normalize_product_name(payload),
-            image_url=self.normalize_image_url(payload),
+            barcode=self.clean_text(product_payload.get("code")) or barcode or "",
+            brand_name=self.normalize_brand_name(product_payload),
+            product_name=self.normalize_product_name(product_payload),
+            image_url=self.normalize_image_url(product_payload),
             ingredient_text=ingredient_text,
             ingredient_coverage_status=coverage_status,
             source=self.provider_name,
+            product_quality_status=quality_status,
+            provider_warnings=warnings,
         )
+
+    def build_provider_warnings(self, payload: dict, product_payload: dict) -> list[str]:
+        warnings: list[str] = []
+        status_verbose = self.clean_text(payload.get("status_verbose")) or ""
+        category_tokens = self.normalize_category_tokens(product_payload)
+
+        if WRONG_PRODUCT_TYPE_MARKER in status_verbose.lower():
+            warnings.append(
+                "The lookup source reported this barcode under a different product type: beauty."
+            )
+
+        if "incorrect product type" in category_tokens:
+            warnings.append(
+                "The lookup source tagged this product as an incorrect product type."
+            )
+
+        if self.provider_name == "open_beauty_facts":
+            has_cosmetic_context = any(
+                marker in category_tokens for marker in COSMETIC_CATEGORY_MARKERS
+            )
+            has_food_context = any(
+                marker in category_tokens for marker in FOOD_CATEGORY_MARKERS
+            )
+            if has_cosmetic_context and has_food_context:
+                warnings.append(
+                    "The lookup source mixed cosmetic categories with food-related categories for this barcode."
+                )
+
+        return list(dict.fromkeys(warnings))
+
+    def normalize_category_tokens(self, payload: dict) -> set[str]:
+        raw_values: list[str] = []
+
+        categories = payload.get("categories")
+        if isinstance(categories, str):
+            raw_values.extend(part.strip() for part in categories.split(",") if part.strip())
+
+        category_tags = payload.get("categories_tags") or []
+        if isinstance(category_tags, list):
+            for tag in category_tags:
+                cleaned = self.clean_text(tag)
+                if cleaned:
+                    raw_values.append(cleaned)
+        elif isinstance(category_tags, str):
+            raw_values.extend(part.strip() for part in category_tags.split(",") if part.strip())
+
+        normalized = set()
+        for value in raw_values:
+            token = value.lower().replace("_", " ").replace(":", " ").replace("-", " ")
+            token = re.sub(r"\s+", " ", token).strip()
+            if token:
+                normalized.add(token)
+        return normalized
 
     @staticmethod
     def clean_text(value: Optional[object]) -> Optional[str]:
