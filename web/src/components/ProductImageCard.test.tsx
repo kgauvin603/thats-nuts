@@ -1,0 +1,29 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { ProductImageCard } from './ProductImageCard';
+
+describe('ProductImageCard', () => {
+  it('renders the product image when a URL is present', () => {
+    render(
+      <ProductImageCard
+        imageUrl="https://images.example.invalid/nutella.jpg"
+        productName="Nutella"
+      />,
+    );
+
+    expect(screen.getByAltText('Nutella')).toBeInTheDocument();
+  });
+
+  it('shows a placeholder when the image fails to load', () => {
+    render(
+      <ProductImageCard
+        imageUrl="https://images.example.invalid/missing.jpg"
+        productName="Nutella"
+      />,
+    );
+
+    fireEvent.error(screen.getByAltText('Nutella'));
+
+    expect(screen.getByLabelText('Product image placeholder')).toBeInTheDocument();
+  });
+});
