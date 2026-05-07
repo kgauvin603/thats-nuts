@@ -37,6 +37,35 @@ describe('ProductPhotoUpload', () => {
     });
   });
 
+  it('shows the returned informational message when the backend reports updated=false', async () => {
+    const user = userEvent.setup();
+    uploadProductPhoto.mockReset();
+    uploadProductPhoto.mockResolvedValue({
+      barcode: '5555555555555',
+      image_url: 'https://api.thatsnuts.activeadvantage.co/uploads/product_photos/existing.jpg',
+      updated: false,
+      message: 'This saved product already has an image. Use replace photo to update it.',
+    });
+
+    render(
+      <ProductPhotoUpload
+        barcode="5555555555555"
+        onUploaded={vi.fn()}
+      />,
+    );
+
+    await user.upload(
+      screen.getByTestId('product-photo-input'),
+      new File(['image'], 'photo.jpg', { type: 'image/jpeg' }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('This saved product already has an image. Use replace photo to update it.'),
+      ).toBeInTheDocument();
+    });
+  });
+
   it('shows an error state after upload fails', async () => {
     const user = userEvent.setup();
     uploadProductPhoto.mockReset();
@@ -56,7 +85,37 @@ describe('ProductPhotoUpload', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Photo could not be uploaded. Please try again.'),
+        screen.getByText('upload failed'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows a HEIC-specific rejection message from the backend', async () => {
+    const user = userEvent.setup();
+    uploadProductPhoto.mockReset();
+    uploadProductPhoto.mockRejectedValue(
+      new Error(
+        'HEIC photos are not supported yet. Please choose Most Compatible/JPEG or upload a JPEG, PNG, or WebP.',
+      ),
+    );
+
+    render(
+      <ProductPhotoUpload
+        barcode="5555555555555"
+        onUploaded={vi.fn()}
+      />,
+    );
+
+    await user.upload(
+      screen.getByTestId('product-photo-input'),
+      new File(['image'], 'photo.heic', { type: 'image/heic' }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'HEIC photos are not supported yet. Please choose Most Compatible/JPEG or upload a JPEG, PNG, or WebP.',
+        ),
       ).toBeInTheDocument();
     });
   });
@@ -74,5 +133,6 @@ describe('ProductPhotoUpload', () => {
       screen.getByRole('button', { name: 'Add product photo for barcode 5555555555555' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Take or upload a photo')).toBeInTheDocument();
+    expect(screen.getByText('JPEG, PNG, or WebP')).toBeInTheDocument();
   });
 });

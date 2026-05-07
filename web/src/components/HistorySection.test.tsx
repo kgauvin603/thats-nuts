@@ -214,7 +214,7 @@ describe('HistorySection', () => {
     });
     await waitFor(() => {
       expect(screen.getByAltText('Demo Lotion')).toBeInTheDocument();
-      expect(screen.getByText('Photo saved.')).toBeInTheDocument();
+    expect(screen.getByText('Product photo saved.')).toBeInTheDocument();
     });
   });
 
@@ -256,7 +256,7 @@ describe('HistorySection', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Photo could not be uploaded. Please try again.'),
+        screen.getByText('upload failed'),
       ).toBeInTheDocument();
     });
   });

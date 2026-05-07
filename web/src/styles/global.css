@@ -338,6 +338,12 @@ p {
   color: var(--color-muted);
 }
 
+.photo-upload-format-note {
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  margin: 0;
+}
+
 .photo-upload-actions {
   display: flex;
   flex-wrap: wrap;

@@ -88,8 +88,8 @@ export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
                   accessibleLabel={`Add product photo for barcode ${result.barcode}`}
                   barcode={result.barcode}
                   buttonLabel="Add product photo"
-                  onUploaded={(imageUrl) => {
-                    setUploadNotice({ tone: 'success', message: 'Photo saved.' });
+                  onUploaded={(imageUrl, message) => {
+                    setUploadNotice({ tone: 'success', message });
                     onPhotoUploaded?.(imageUrl);
                   }}
                   onUploadError={(message) => {

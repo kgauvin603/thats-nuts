@@ -153,14 +153,14 @@ export function HistorySection() {
                           accessibleLabel={`Add product photo for barcode ${entry.barcode}`}
                           barcode={entry.barcode}
                           buttonLabel="Add product photo"
-                          onUploaded={(imageUrl) => {
+                          onUploaded={(imageUrl, message) => {
                             setImageOverrides((current) => ({
                               ...current,
                               [entry.barcode!]: imageUrl,
                             }));
                             setUploadNotices((current) => ({
                               ...current,
-                              [entry.barcode!]: { tone: 'success', message: 'Photo saved.' },
+                              [entry.barcode!]: { tone: 'success', message },
                             }));
                           }}
                           onUploadError={(message) => {

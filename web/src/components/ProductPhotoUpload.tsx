@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type ChangeEvent } from 'react';
-import { ApiError, uploadProductPhoto } from '../lib/api';
+import { uploadProductPhoto } from '../lib/api';
 
 interface ProductPhotoUploadProps {
   barcode: string;
@@ -48,7 +48,7 @@ export function ProductPhotoUpload({
       setSuccessMessage(message);
     } catch (error) {
       const message =
-        error instanceof ApiError
+        error instanceof Error && error.message
           ? error.message
           : 'Photo could not be uploaded. Please try again.';
       setErrorMessage(message);
@@ -80,6 +80,7 @@ export function ProductPhotoUpload({
           </span>
           <strong>{isUploading ? 'Uploading photo...' : buttonLabel}</strong>
           <span>Take or upload a photo</span>
+          <span className="photo-upload-format-note">JPEG, PNG, or WebP</span>
         </button>
         <input
           accept="image/*"
@@ -103,6 +104,7 @@ export function ProductPhotoUpload({
   return (
     <div className="photo-upload-panel">
       <p className="photo-upload-helper">{helperText}</p>
+      <p className="photo-upload-format-note">JPEG, PNG, or WebP. HEIC is not supported yet.</p>
       <div className="photo-upload-actions">
         <button
           aria-label={accessibleLabel || `Add product photo for barcode ${barcode}`}
