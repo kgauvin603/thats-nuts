@@ -1,18 +1,20 @@
-import { type ReactNode, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ProductImageCardProps {
   imageUrl?: string | null;
   productName?: string | null;
-  placeholderContent?: ReactNode;
 }
 
 export function ProductImageCard({
   imageUrl,
   productName,
-  placeholderContent,
 }: ProductImageCardProps) {
   const [hasFailed, setHasFailed] = useState(false);
   const showImage = Boolean(imageUrl) && !hasFailed;
+
+  useEffect(() => {
+    setHasFailed(false);
+  }, [imageUrl]);
 
   return (
     <div className="product-image-card">
@@ -24,14 +26,9 @@ export function ProductImageCard({
           src={imageUrl ?? undefined}
         />
       ) : (
-        placeholderContent || (
-          <div
-            aria-label="Product image placeholder"
-            className="product-image-placeholder"
-          >
-            <span>No product photo available</span>
-          </div>
-        )
+        <div aria-label="Product image placeholder" className="product-image-placeholder">
+          <span>No product photo available</span>
+        </div>
       )}
     </div>
   );

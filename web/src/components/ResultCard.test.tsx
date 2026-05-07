@@ -8,7 +8,7 @@ vi.mock('../lib/api', () => ({
 }));
 
 describe('ResultCard', () => {
-  it('uses the image placeholder as the add-photo button for enrichment results without an image', () => {
+  it('shows a simple placeholder and an explicit add-photo action for enrichment results without an image', () => {
     render(
       <ResultCard
         onPhotoUploaded={vi.fn()}
@@ -41,10 +41,10 @@ describe('ResultCard', () => {
         name: 'Add product photo for barcode 5555555555555',
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Take or upload a photo')).toBeInTheDocument();
+    expect(screen.getByText('No product photo available')).toBeInTheDocument();
   });
 
-  it('does not show the upload placeholder when an image already exists', () => {
+  it('does not show upload controls for provider images', () => {
     render(
       <ResultCard
         onPhotoUploaded={vi.fn()}
@@ -77,5 +77,40 @@ describe('ResultCard', () => {
         name: 'Add product photo for barcode 3017620422003',
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows an add-photo action for saved enrichment images', () => {
+    render(
+      <ResultCard
+        onPhotoUploaded={vi.fn()}
+        result={{
+          mode: 'barcode',
+          title: 'Demo Lotion',
+          sourceLabel: 'enrichment',
+          barcode: '5555555555555',
+          product: {
+            barcode: '5555555555555',
+            product_name: 'Demo Lotion',
+            brand_name: 'Demo Brand',
+            image_url: 'https://api.thatsnuts.activeadvantage.co/uploads/product_photos/demo.png',
+            ingredient_text: 'Water, Sweet Almond Oil',
+            ingredient_coverage_status: 'complete',
+            source: 'text_scan',
+          },
+          status: 'contains_nut_ingredient',
+          matchedIngredients: [],
+          explanation: 'Sweet almond oil was detected.',
+          ingredientText: 'Water, Sweet Almond Oil',
+          unknownTerms: [],
+          lookupPath: [],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Add product photo for barcode 5555555555555',
+      }),
+    ).toBeInTheDocument();
   });
 });

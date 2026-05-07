@@ -94,13 +94,29 @@ export async function uploadProductPhoto(
   const formData = new FormData();
   formData.append('photo', file);
 
-  const response = await fetch(
-    `${baseUrl}/products/${encodeURIComponent(barcode)}/photo?overwrite=${overwrite}`,
-    {
-      method: 'POST',
-      body: formData,
-    },
-  );
+  let response: Response;
+  try {
+    response = await fetch(
+      `${baseUrl}/products/${encodeURIComponent(barcode)}/photo?overwrite=${overwrite}`,
+      {
+        method: 'POST',
+        body: formData,
+      },
+    );
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('Product photo upload failed before receiving an HTTP response.', error);
+    }
+    if (error instanceof TypeError) {
+      throw new ApiError(
+        'Upload request could not reach the API. Please check network/CORS or try again.',
+      );
+    }
+    if (error instanceof Error && error.message) {
+      throw new ApiError(error.message);
+    }
+    throw new ApiError('Photo could not be uploaded. Please try again.');
+  }
 
   if (!response.ok) {
     let detail = `Backend request failed with status ${response.status}.`;
@@ -111,6 +127,12 @@ export async function uploadProductPhoto(
       }
     } catch {
       // Keep the fallback error message when the response is not JSON.
+    }
+    if (import.meta.env.DEV) {
+      console.error('Product photo upload failed with an HTTP response.', {
+        status: response.status,
+        detail,
+      });
     }
     throw new ApiError(detail);
   }

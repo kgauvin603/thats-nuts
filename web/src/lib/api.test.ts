@@ -110,4 +110,48 @@ describe('api configuration', () => {
       }),
     );
   });
+
+  it('posts overwrite=true when replacing a saved product photo', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            barcode: '5555555555555',
+            image_url: 'https://api.thatsnuts.activeadvantage.co/uploads/product_photos/demo.png',
+            updated: true,
+            message: 'Product photo saved.',
+          }),
+          { status: 200 },
+        ),
+      );
+
+    await uploadProductPhoto(
+      '5555555555555',
+      new File(['image'], 'photo.png', { type: 'image/png' }),
+      true,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.thatsnuts.activeadvantage.co/products/5555555555555/photo?overwrite=true',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(FormData),
+      }),
+    );
+  });
+
+  it('translates network fetch failures into a helpful upload message', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await expect(
+      uploadProductPhoto(
+        '5555555555555',
+        new File(['image'], 'photo.png', { type: 'image/png' }),
+      ),
+    ).rejects.toThrow(
+      'Upload request could not reach the API. Please check network/CORS or try again.',
+    );
+  });
 });

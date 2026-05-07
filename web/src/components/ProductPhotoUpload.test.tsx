@@ -37,6 +37,39 @@ describe('ProductPhotoUpload', () => {
     });
   });
 
+  it('passes overwrite=true when replacing a saved product photo', async () => {
+    const user = userEvent.setup();
+    uploadProductPhoto.mockReset();
+    uploadProductPhoto.mockResolvedValue({
+      barcode: '5555555555555',
+      image_url: 'https://api.thatsnuts.activeadvantage.co/uploads/product_photos/demo.png',
+      updated: true,
+      message: 'Product photo saved.',
+    });
+
+    render(
+      <ProductPhotoUpload
+        barcode="5555555555555"
+        onUploaded={vi.fn()}
+        overwrite
+        variant="inline"
+      />,
+    );
+
+    await user.upload(
+      screen.getByTestId('product-photo-input'),
+      new File(['image'], 'photo.png', { type: 'image/png' }),
+    );
+
+    await waitFor(() => {
+      expect(uploadProductPhoto).toHaveBeenCalledWith(
+        '5555555555555',
+        expect.any(File),
+        true,
+      );
+    });
+  });
+
   it('shows the returned informational message when the backend reports updated=false', async () => {
     const user = userEvent.setup();
     uploadProductPhoto.mockReset();
@@ -120,19 +153,33 @@ describe('ProductPhotoUpload', () => {
     });
   });
 
-  it('renders a clickable placeholder target variant', () => {
+  it('shows a friendly network-reachability message when the backend cannot be reached', async () => {
+    const user = userEvent.setup();
+    uploadProductPhoto.mockReset();
+    uploadProductPhoto.mockRejectedValue(
+      new Error(
+        'Upload request could not reach the API. Please check network/CORS or try again.',
+      ),
+    );
+
     render(
       <ProductPhotoUpload
         barcode="5555555555555"
         onUploaded={vi.fn()}
-        variant="placeholder"
       />,
     );
 
-    expect(
-      screen.getByRole('button', { name: 'Add product photo for barcode 5555555555555' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Take or upload a photo')).toBeInTheDocument();
-    expect(screen.getByText('JPEG, PNG, or WebP')).toBeInTheDocument();
+    await user.upload(
+      screen.getByTestId('product-photo-input'),
+      new File(['image'], 'photo.png', { type: 'image/png' }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Upload request could not reach the API. Please check network/CORS or try again.',
+        ),
+      ).toBeInTheDocument();
+    });
   });
 });

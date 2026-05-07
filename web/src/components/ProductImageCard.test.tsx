@@ -25,17 +25,13 @@ describe('ProductImageCard', () => {
     fireEvent.error(view.getByAltText('Nutella'));
 
     expect(screen.getByLabelText('Product image placeholder')).toBeInTheDocument();
+    expect(screen.getByText('No product photo available')).toBeInTheDocument();
   });
 
-  it('renders custom placeholder content when provided', () => {
-    render(
-      <ProductImageCard
-        imageUrl={null}
-        placeholderContent={<button type="button">Add product photo</button>}
-        productName="Nutella"
-      />,
-    );
+  it('shows the same simple placeholder when no image URL is present', () => {
+    render(<ProductImageCard imageUrl={null} productName="Nutella" />);
 
-    expect(screen.getByRole('button', { name: 'Add product photo' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Product image placeholder')).toBeInTheDocument();
+    expect(screen.getByText('No product photo available')).toBeInTheDocument();
   });
 });

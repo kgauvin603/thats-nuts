@@ -15,6 +15,16 @@ import {
 import { ProductPhotoUpload } from './ProductPhotoUpload';
 import { ProductImageCard } from './ProductImageCard';
 
+function isPhotoManagedRecord(entry: HistoryEntry) {
+  return (
+    Boolean(entry.barcode) &&
+    (entry.rawScanType === 'barcode_enrichment' ||
+      entry.productSource === 'manual_entry' ||
+      entry.productSource === 'text_scan' ||
+      entry.productSource === 'enrichment')
+  );
+}
+
 export function HistorySection() {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [inconsistent, setInconsistent] = useState<InconsistentBarcodeEntry[]>([]);
@@ -133,68 +143,38 @@ export function HistorySection() {
         {!isHistoryLoading && !historyError && entries.length > 0 ? (
           <div className="history-grid">
             {entries.map((entry) => {
-              const isPhotoUploadEligible =
-                Boolean(entry.barcode) &&
-                !imageOverrides[entry.barcode || ''] &&
-                !entry.imageUrl &&
-                (entry.rawScanType === 'barcode_enrichment' ||
-                  entry.productSource === 'manual_entry' ||
-                  entry.productSource === 'text_scan');
+              const currentImageUrl = entry.barcode
+                ? imageOverrides[entry.barcode] || entry.imageUrl
+                : entry.imageUrl;
+              const isPhotoManaged = isPhotoManagedRecord(entry);
 
               return (
                 <article className="history-card" key={entry.id}>
-                <div className="history-card-top">
-                  <ProductImageCard
-                    imageUrl={imageOverrides[entry.barcode || ''] || entry.imageUrl}
-                    productName={entry.productName || entry.scanType}
-                    placeholderContent={
-                      isPhotoUploadEligible && entry.barcode ? (
-                        <ProductPhotoUpload
-                          accessibleLabel={`Add product photo for barcode ${entry.barcode}`}
-                          barcode={entry.barcode}
-                          buttonLabel="Add product photo"
-                          onUploaded={(imageUrl, message) => {
-                            setImageOverrides((current) => ({
-                              ...current,
-                              [entry.barcode!]: imageUrl,
-                            }));
-                            setUploadNotices((current) => ({
-                              ...current,
-                              [entry.barcode!]: { tone: 'success', message },
-                            }));
-                          }}
-                          onUploadError={(message) => {
-                            setUploadNotices((current) => ({
-                              ...current,
-                              [entry.barcode!]: { tone: 'error', message },
-                            }));
-                          }}
-                          showStatus={false}
-                          variant="placeholder"
-                        />
-                      ) : undefined
-                    }
-                  />
-                  <div className="history-card-summary">
-                    <span className="detail-label">{entry.scanType}</span>
-                    <h3>{entry.productName || 'Saved scan'}</h3>
-                    <p>{entry.brandName || 'Brand unavailable'}</p>
-                    <div className="pill-list">
-                      <span className="pill">{entry.assessmentLabel}</span>
-                      <span className="pill">
-                        {entry.scanCount === 1 ? '1 successful scan' : `${entry.scanCount} successful scans`}
-                      </span>
-                      {entry.firstSeenAt ? (
-                        <span className="pill">First seen {entry.firstSeenAt}</span>
-                      ) : null}
-                      {entry.lastSeenAt ? (
-                        <span className="pill">Last seen {entry.lastSeenAt}</span>
-                      ) : (
-                        <span className="pill">{entry.createdAt}</span>
-                      )}
+                  <div className="history-card-top">
+                    <ProductImageCard
+                      imageUrl={currentImageUrl}
+                      productName={entry.productName || entry.scanType}
+                    />
+                    <div className="history-card-summary">
+                      <span className="detail-label">{entry.scanType}</span>
+                      <h3>{entry.productName || 'Saved scan'}</h3>
+                      <p>{entry.brandName || 'Brand unavailable'}</p>
+                      <div className="pill-list">
+                        <span className="pill">{entry.assessmentLabel}</span>
+                        <span className="pill">
+                          {entry.scanCount === 1 ? '1 successful scan' : `${entry.scanCount} successful scans`}
+                        </span>
+                        {entry.firstSeenAt ? (
+                          <span className="pill">First seen {entry.firstSeenAt}</span>
+                        ) : null}
+                        {entry.lastSeenAt ? (
+                          <span className="pill">Last seen {entry.lastSeenAt}</span>
+                        ) : (
+                          <span className="pill">{entry.createdAt}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
                 {entry.barcode && uploadNotices[entry.barcode] ? (
                   <p
                     className={
@@ -238,6 +218,39 @@ export function HistorySection() {
                   <span className="detail-label">Summary</span>
                   <p>{entry.explanation || 'No additional explanation was returned.'}</p>
                 </div>
+
+                {isPhotoManaged && entry.barcode ? (
+                  <div className="detail-panel photo-upload-record-panel">
+                    <span className="detail-label">Product photo</span>
+                    <ProductPhotoUpload
+                      accessibleLabel={`Add product photo for barcode ${entry.barcode}`}
+                      barcode={entry.barcode}
+                      buttonLabel="Add product photo"
+                      onUploaded={(imageUrl) => {
+                        setImageOverrides((current) => ({
+                          ...current,
+                          [entry.barcode!]: imageUrl,
+                        }));
+                        setUploadNotices((current) => ({
+                          ...current,
+                          [entry.barcode!]: {
+                            tone: 'success',
+                            message: 'Photo saved.',
+                          },
+                        }));
+                        void loadHistory();
+                      }}
+                      onUploadError={(message) => {
+                        setUploadNotices((current) => ({
+                          ...current,
+                          [entry.barcode!]: { tone: 'error', message },
+                        }));
+                      }}
+                      overwrite
+                      showStatus={false}
+                    />
+                  </div>
+                ) : null}
                 </article>
               );
             })}

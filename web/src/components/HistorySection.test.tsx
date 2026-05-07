@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HistorySection } from './HistorySection';
@@ -159,6 +159,7 @@ describe('HistorySection', () => {
     expect(screen.getByText('Demo Lotion')).toBeInTheDocument();
     expect(screen.getByText('Water, Sweet Almond Oil')).toBeInTheDocument();
     expect(screen.getByText('Water, Glycerin')).toBeInTheDocument();
+    expect(screen.getAllByText('No product photo available')).toHaveLength(2);
     expect(
       screen.getByRole('button', { name: 'Add product photo for barcode 5555555555555' }),
     ).toBeInTheDocument();
@@ -210,12 +211,17 @@ describe('HistorySection', () => {
       expect(uploadProductPhoto).toHaveBeenCalledWith(
         '5555555555555',
         expect.any(File),
+        true,
       );
     });
     await waitFor(() => {
       expect(screen.getByAltText('Demo Lotion')).toBeInTheDocument();
-    expect(screen.getByText('Product photo saved.')).toBeInTheDocument();
+      expect(screen.getByText('Photo saved.')).toBeInTheDocument();
     });
+    expect(screen.getByAltText('Demo Lotion')).toHaveAttribute(
+      'src',
+      'https://api.thatsnuts.activeadvantage.co/uploads/product_photos/demo.png',
+    );
   });
 
   it('renders an upload error message when photo upload fails', async () => {
@@ -257,6 +263,144 @@ describe('HistorySection', () => {
     await waitFor(() => {
       expect(
         screen.getByText('upload failed'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows an add product photo action for saved enrichment images and uses overwrite=true', async () => {
+    const user = userEvent.setup();
+    fetchGroupedScanHistory.mockResolvedValue({
+      items: [
+        {
+          scan_type: 'barcode_enrichment',
+          grouped_scan_type: 'barcode_enrichment',
+          barcode: '0850020511198',
+          product_name: 'cell renew',
+          brand_name: 'Demo Brand',
+          image_url: 'https://api.thatsnuts.activeadvantage.co/uploads/product_photos/test.png',
+          product_source: 'text_scan',
+          submitted_ingredient_text: 'Water, Glycerin',
+          assessment_status: 'no_nut_ingredient_found',
+          explanation: 'No match found.',
+          matched_ingredient_summary: null,
+          scan_count: 2,
+          first_seen_at: '2026-05-07T11:00:00Z',
+          last_seen_at: '2026-05-07T11:31:00Z',
+          latest_explanation: 'No match found.',
+          latest_source: 'text_scan',
+        },
+      ],
+    });
+    fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
+    uploadProductPhoto.mockResolvedValue({
+      barcode: '0850020511198',
+      image_url: 'https://api.thatsnuts.activeadvantage.co/uploads/product_photos/replaced.png',
+      updated: true,
+      message: 'Product photo saved.',
+    });
+
+    render(<HistorySection />);
+
+    const addButton = await screen.findByRole('button', {
+      name: 'Add product photo for barcode 0850020511198',
+    });
+    expect(addButton).toBeInTheDocument();
+
+    const input = screen.getByTestId('product-photo-input');
+    await user.upload(input, new File(['image'], 'photo.png', { type: 'image/png' }));
+
+    await waitFor(() => {
+      expect(uploadProductPhoto).toHaveBeenCalledWith(
+        '0850020511198',
+        expect.any(File),
+        true,
+      );
+      expect(screen.getByText('Photo saved.')).toBeInTheDocument();
+    });
+  });
+
+  it('keeps the add product photo action available when an eligible image fails to load', async () => {
+    fetchGroupedScanHistory.mockResolvedValue({
+      items: [
+        {
+          scan_type: 'barcode_enrichment',
+          grouped_scan_type: 'barcode_enrichment',
+          barcode: '0850020511198',
+          product_name: 'cell renew',
+          brand_name: 'Demo Brand',
+          image_url: 'https://api.thatsnuts.activeadvantage.co/uploads/product_photos/missing.png',
+          product_source: 'text_scan',
+          submitted_ingredient_text: 'Water, Glycerin',
+          assessment_status: 'no_nut_ingredient_found',
+          explanation: 'No match found.',
+          matched_ingredient_summary: null,
+          scan_count: 2,
+          first_seen_at: '2026-05-07T11:00:00Z',
+          last_seen_at: '2026-05-07T11:31:00Z',
+          latest_explanation: 'No match found.',
+          latest_source: 'text_scan',
+        },
+      ],
+    });
+    fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
+
+    render(<HistorySection />);
+
+    const image = await screen.findByAltText('cell renew');
+    fireEvent.error(image);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Add product photo for barcode 0850020511198',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('No product photo available')).toBeInTheDocument();
+  });
+
+  it('shows a friendly network failure message instead of raw Failed to fetch', async () => {
+    const user = userEvent.setup();
+    fetchGroupedScanHistory.mockResolvedValue({
+      items: [
+        {
+          scan_type: 'barcode_enrichment',
+          grouped_scan_type: 'barcode_enrichment',
+          barcode: '5555555555555',
+          product_name: 'Demo Lotion',
+          brand_name: 'Demo Brand',
+          image_url: null,
+          product_source: 'text_scan',
+          submitted_ingredient_text: 'Water, Sweet Almond Oil',
+          assessment_status: 'contains_nut_ingredient',
+          explanation: 'Sweet almond oil was detected.',
+          matched_ingredient_summary: 'Sweet Almond Oil',
+          scan_count: 2,
+          first_seen_at: '2026-05-07T11:00:00Z',
+          last_seen_at: '2026-05-07T11:31:00Z',
+          latest_explanation: 'Sweet almond oil was detected.',
+          latest_source: 'text_scan',
+        },
+      ],
+    });
+    fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
+    uploadProductPhoto.mockRejectedValue(
+      new Error(
+        'Upload request could not reach the API. Please check network/CORS or try again.',
+      ),
+    );
+
+    render(<HistorySection />);
+
+    const input = await screen.findByTestId('product-photo-input');
+    await user.upload(input, new File(['image'], 'photo.png', { type: 'image/png' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Upload request could not reach the API. Please check network/CORS or try again.',
+        ),
       ).toBeInTheDocument();
     });
   });

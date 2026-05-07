@@ -43,28 +43,30 @@ function getStatusMeta(status: UnifiedResult['status']) {
 }
 
 export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
+  const [imageOverride, setImageOverride] = useState<string | null>(null);
   const [uploadNotice, setUploadNotice] = useState<{
     tone: 'success' | 'error';
     message: string;
   } | null>(null);
   const meta = getStatusMeta(result.status);
+  const currentImageUrl = imageOverride || result.product?.image_url || null;
+  const isPhotoManagedRecord =
+    result.mode === 'barcode' &&
+    Boolean(result.barcode) &&
+    (result.sourceLabel === 'enrichment' ||
+      result.product?.source === 'manual_entry' ||
+      result.product?.source === 'text_scan' ||
+      result.product?.source === 'enrichment');
   const hasProductDetails =
     result.mode === 'barcode' &&
     (result.product?.product_name ||
       result.product?.brand_name ||
-      result.product?.image_url ||
+      currentImageUrl ||
       result.barcode);
-  const shouldOfferPhotoUpload =
-    result.mode === 'barcode' &&
-    Boolean(result.barcode) &&
-    !result.product?.image_url &&
-    Boolean(onPhotoUploaded) &&
-    (result.sourceLabel === 'enrichment' ||
-      result.product?.source === 'manual_entry' ||
-      result.product?.source === 'text_scan');
 
   useEffect(() => {
     setUploadNotice(null);
+    setImageOverride(null);
   }, [result.barcode, result.product?.image_url, result.sourceLabel]);
 
   return (
@@ -80,26 +82,8 @@ export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
       {hasProductDetails ? (
         <div className="result-grid">
           <ProductImageCard
-            imageUrl={result.product?.image_url}
+            imageUrl={currentImageUrl}
             productName={result.product?.product_name}
-            placeholderContent={
-              shouldOfferPhotoUpload && result.barcode ? (
-                <ProductPhotoUpload
-                  accessibleLabel={`Add product photo for barcode ${result.barcode}`}
-                  barcode={result.barcode}
-                  buttonLabel="Add product photo"
-                  onUploaded={(imageUrl, message) => {
-                    setUploadNotice({ tone: 'success', message });
-                    onPhotoUploaded?.(imageUrl);
-                  }}
-                  onUploadError={(message) => {
-                    setUploadNotice({ tone: 'error', message });
-                  }}
-                  showStatus={false}
-                  variant="placeholder"
-                />
-              ) : undefined
-            }
           />
           <div className="stack">
             <div className="detail-panel">
@@ -132,6 +116,27 @@ export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
           <span className="detail-label">Explanation</span>
           <p>{result.explanation}</p>
         </div>
+
+        {isPhotoManagedRecord && result.barcode ? (
+          <div className="detail-panel photo-upload-record-panel">
+            <span className="detail-label">Product photo</span>
+            <ProductPhotoUpload
+              accessibleLabel={`Add product photo for barcode ${result.barcode}`}
+              barcode={result.barcode}
+              buttonLabel="Add product photo"
+              onUploaded={(imageUrl) => {
+                setImageOverride(imageUrl);
+                setUploadNotice({ tone: 'success', message: 'Photo saved.' });
+                onPhotoUploaded?.(imageUrl);
+              }}
+              onUploadError={(message) => {
+                setUploadNotice({ tone: 'error', message });
+              }}
+              overwrite
+              showStatus={false}
+            />
+          </div>
+        ) : null}
 
         {result.matchedIngredients.length > 0 ? (
           <div className="detail-panel">
