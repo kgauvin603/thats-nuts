@@ -3,6 +3,7 @@ import type {
   IngredientCheckResponse,
   ProductLookupResponse,
 } from './types';
+import type { ScanHistoryResponse } from './history';
 
 export class ApiError extends Error {
   constructor(message: string) {
@@ -35,6 +36,16 @@ async function postJson<TResponse>(
   return (await response.json()) as TResponse;
 }
 
+async function getJson<TResponse>(path: string): Promise<TResponse> {
+  const response = await fetch(`${baseUrl}${path}`);
+
+  if (!response.ok) {
+    throw new ApiError(`Backend request failed with status ${response.status}.`);
+  }
+
+  return (await response.json()) as TResponse;
+}
+
 export function getApiBaseUrl() {
   return baseUrl;
 }
@@ -47,4 +58,8 @@ export function checkIngredients(ingredientText: string) {
   return postJson<IngredientCheckResponse>('/check-ingredients', {
     ingredient_text: ingredientText,
   });
+}
+
+export function fetchScanHistory(limit = 20) {
+  return getJson<ScanHistoryResponse>(`/scan-history?limit=${limit}`);
 }

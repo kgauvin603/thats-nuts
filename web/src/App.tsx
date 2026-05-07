@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AcornMark } from './components/AcornMark';
 import { IngredientForm } from './components/IngredientForm';
+import { HistorySection } from './components/HistorySection';
 import { LookupForm } from './components/LookupForm';
 import { ResultCard } from './components/ResultCard';
 import { SafetyDisclaimerModal } from './components/SafetyDisclaimerModal';
@@ -81,6 +82,9 @@ function App() {
             <a className="button button-secondary" href="#ingredient-checker">
               Paste ingredients
             </a>
+            <a className="button button-secondary" href="#history">
+              View history
+            </a>
           </div>
           <p className="hero-caption">
             That’s Nuts is informational only. Final product safety decisions are
@@ -126,6 +130,8 @@ function App() {
             onSubmit={submitIngredients}
           />
         </section>
+
+        <HistorySection />
 
         {hasExited && !isDisclaimerAccepted ? (
           <section className="info-card">

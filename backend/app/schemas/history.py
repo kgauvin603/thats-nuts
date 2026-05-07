@@ -18,6 +18,7 @@ class ScanHistoryEntry(BaseModel):
     barcode: Optional[str] = None
     product_name: Optional[str] = None
     brand_name: Optional[str] = None
+    image_url: Optional[str] = None
     product_source: Optional[str] = None
     submitted_ingredient_text: Optional[str] = None
     assessment_status: IngredientCheckStatus

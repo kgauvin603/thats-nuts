@@ -33,6 +33,7 @@ def test_recent_scan_history_returns_manual_and_barcode_checks(temp_database):
     assert newest_item.scan_type == "barcode_lookup"
     assert newest_item.product_name == "Sample Almond Body Oil"
     assert newest_item.brand_name == "Thats Nuts Labs"
+    assert newest_item.image_url == "https://images.example.invalid/products/0001234567890.jpg"
     assert newest_item.product_source == "stub"
     assert newest_item.assessment_status == "contains_nut_ingredient"
     assert newest_item.matched_ingredient_summary == "Prunus Amygdalus Dulcis Oil"
@@ -43,6 +44,7 @@ def test_recent_scan_history_returns_manual_and_barcode_checks(temp_database):
     assert older_item.barcode is None
     assert older_item.product_name is None
     assert older_item.brand_name is None
+    assert older_item.image_url is None
     assert older_item.product_source is None
     assert older_item.submitted_ingredient_text == "Water, Glycerin, Prunus Amygdalus Dulcis Oil"
     assert older_item.assessment_status == "contains_nut_ingredient"
@@ -84,6 +86,7 @@ def test_recent_scan_history_includes_unsuccessful_barcode_lookups(temp_database
     assert item.barcode == "9999999999999"
     assert item.product_name is None
     assert item.brand_name is None
+    assert item.image_url is None
     assert item.product_source is None
     assert item.submitted_ingredient_text is None
     assert item.assessment_status == "cannot_verify"
@@ -113,6 +116,7 @@ def test_recent_scan_history_marks_manual_barcode_enrichment(temp_database):
     assert item.barcode == "5555555555555"
     assert item.product_name == "Demo Lotion"
     assert item.brand_name == "Demo Brand"
+    assert item.image_url is None
     assert item.product_source == "text_scan"
     assert item.submitted_ingredient_text == "Water, Sweet Almond Oil"
 
@@ -256,6 +260,7 @@ def test_recent_scan_history_migrates_legacy_database_rows(monkeypatch, tmp_path
         ]
         assert response.items[0].product_name == "Migrated Demo Lotion"
         assert response.items[0].brand_name == "Demo Brand"
+        assert response.items[0].image_url is None
         assert response.items[0].scan_type == "barcode_enrichment"
         assert response.items[0].product_source == "text_scan"
         assert response.items[1].product_name == "Legacy Lotion"

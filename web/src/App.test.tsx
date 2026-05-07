@@ -9,6 +9,7 @@ import {
 
 vi.mock('./lib/api', () => ({
   checkIngredients: vi.fn(),
+  fetchScanHistory: vi.fn().mockResolvedValue({ items: [] }),
   getApiBaseUrl: () => 'https://api.thatsnuts.activeadvantage.co',
   lookupProduct: vi.fn(),
 }));
@@ -45,6 +46,7 @@ describe('App disclaimer gate', () => {
       screen.getByRole('heading', { name: 'That’s Nuts' }),
     ).toBeInTheDocument();
     expect(screen.getByAltText('That’s Nuts app icon')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View history' })).toBeInTheDocument();
   });
 
   it('prevents use before disclaimer acceptance', () => {

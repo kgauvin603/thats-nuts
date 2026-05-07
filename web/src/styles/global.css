@@ -235,6 +235,72 @@ p {
   margin-top: 1.5rem;
 }
 
+.history-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+}
+
+.history-caption {
+  margin-top: 0.65rem;
+  color: var(--color-muted);
+}
+
+.history-state-card,
+.history-card {
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  background: rgba(250, 246, 240, 0.88);
+  box-shadow: 0 20px 40px var(--color-shadow);
+}
+
+.history-state-card {
+  padding: 1.25rem;
+}
+
+.history-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.history-card {
+  padding: 1.2rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.history-card-top {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.history-card-top .product-image-card {
+  min-height: 160px;
+}
+
+.history-card-summary {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.history-card-summary p {
+  color: var(--color-muted);
+}
+
+.history-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
 .info-card {
   padding: 1.4rem;
 }
@@ -529,13 +595,20 @@ code {
   .hero-card,
   .tools-grid,
   .result-grid,
-  .detail-panel-inline {
+  .detail-panel-inline,
+  .history-card-top,
+  .history-detail-grid {
     grid-template-columns: 1fr;
   }
 
   .page-shell {
     width: min(var(--page-width), calc(100% - 1rem));
     padding-top: 1rem;
+  }
+
+  .history-header {
+    align-items: start;
+    flex-direction: column;
   }
 
   h1 {
