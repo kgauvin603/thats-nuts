@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getApiBaseUrl, lookupProduct } from './api';
+import { fetchMissedBarcodeSummary, getApiBaseUrl, lookupProduct } from './api';
 
 describe('api configuration', () => {
   afterEach(() => {
@@ -36,6 +36,18 @@ describe('api configuration', () => {
       expect.objectContaining({
         method: 'POST',
       }),
+    );
+  });
+
+  it('fetches missed barcode telemetry from the expected backend route', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200 }));
+
+    await fetchMissedBarcodeSummary(10);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.thatsnuts.activeadvantage.co/scan-history/missed-barcodes?limit=10',
     );
   });
 });

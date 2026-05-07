@@ -4,18 +4,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HistorySection } from './HistorySection';
 
 const fetchScanHistory = vi.fn();
+const fetchMissedBarcodeSummary = vi.fn();
 
 vi.mock('../lib/api', () => ({
+  fetchMissedBarcodeSummary: (...args: unknown[]) =>
+    fetchMissedBarcodeSummary(...args),
   fetchScanHistory: (...args: unknown[]) => fetchScanHistory(...args),
 }));
 
 describe('HistorySection', () => {
   beforeEach(() => {
     fetchScanHistory.mockReset();
+    fetchMissedBarcodeSummary.mockReset();
   });
 
   it('renders a loading state before history arrives', () => {
     fetchScanHistory.mockReturnValue(new Promise(() => undefined));
+    fetchMissedBarcodeSummary.mockReturnValue(new Promise(() => undefined));
 
     render(<HistorySection />);
 
@@ -24,6 +29,7 @@ describe('HistorySection', () => {
 
   it('renders an empty state when no history is returned', async () => {
     fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
     render(<HistorySection />);
 
@@ -34,6 +40,7 @@ describe('HistorySection', () => {
 
   it('renders an error state when loading fails', async () => {
     fetchScanHistory.mockRejectedValue(new Error('boom'));
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
     render(<HistorySection />);
 
@@ -63,6 +70,7 @@ describe('HistorySection', () => {
         },
       ],
     });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
     render(<HistorySection />);
 
@@ -107,6 +115,7 @@ describe('HistorySection', () => {
         },
       ],
     });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
     render(<HistorySection />);
 
@@ -123,17 +132,75 @@ describe('HistorySection', () => {
   it('refreshes history when the refresh button is pressed', async () => {
     const user = userEvent.setup();
     fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
     render(<HistorySection />);
 
     await waitFor(() => {
       expect(fetchScanHistory).toHaveBeenCalledTimes(1);
+      expect(fetchMissedBarcodeSummary).toHaveBeenCalledTimes(1);
     });
 
     await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
     await waitFor(() => {
       expect(fetchScanHistory).toHaveBeenCalledTimes(2);
+      expect(fetchMissedBarcodeSummary).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('renders unresolved barcode summary entries', async () => {
+    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({
+      items: [
+        {
+          barcode: '9999999999999',
+          miss_count: 3,
+          first_seen_at: '2026-05-07T11:30:00Z',
+          last_seen_at: '2026-05-07T12:30:00Z',
+          latest_explanation:
+            'No product record with a usable ingredient list was found for this barcode.',
+        },
+      ],
+    });
+
+    render(<HistorySection />);
+
+    await waitFor(() => {
+      expect(screen.getByText('9999999999999')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('3 misses')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'No product record with a usable ingredient list was found for this barcode.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('renders unresolved barcode summary empty state', async () => {
+    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
+
+    render(<HistorySection />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('No unresolved barcode misses yet.'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('renders unresolved barcode summary error state', async () => {
+    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockRejectedValue(new Error('boom'));
+
+    render(<HistorySection />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Unresolved barcode summary could not be loaded.'),
+      ).toBeInTheDocument();
     });
   });
 });

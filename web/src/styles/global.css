@@ -269,6 +269,40 @@ p {
   gap: 1rem;
 }
 
+.missed-barcode-panel h3 {
+  margin-top: 0.15rem;
+}
+
+.missed-barcode-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+}
+
+.missed-barcode-list {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.missed-barcode-card {
+  border-radius: 18px;
+  background: rgba(240, 230, 219, 0.7);
+  border: 1px solid var(--color-border);
+  padding: 0.95rem 1rem;
+}
+
+.missed-barcode-card p {
+  margin-top: 0.5rem;
+  color: var(--color-muted);
+}
+
+.missed-barcode-meta {
+  display: grid;
+  gap: 0.55rem;
+}
+
 .history-card {
   padding: 1.2rem;
   display: grid;

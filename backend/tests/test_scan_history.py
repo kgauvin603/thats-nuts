@@ -5,7 +5,7 @@ from app.api.routes.check_ingredients import check_ingredients
 from app.api.routes.product_lookup import enrich_product, lookup_product
 from app.core.config import get_settings
 from app.db.session import get_engine
-from app.api.routes.scan_history import recent_scan_history
+from app.api.routes.scan_history import missed_barcode_summary, recent_scan_history
 from app.schemas.ingredients import IngredientCheckRequest
 from app.schemas.products import ProductEnrichmentRequest, ProductLookupRequest
 from app.services.product_lookup import get_product_lookup_service
@@ -73,12 +73,22 @@ def test_recent_scan_history_respects_limit(temp_database):
     assert response.items[0].scan_type == "manual_ingredient_check"
 
 
-def test_recent_scan_history_includes_unsuccessful_barcode_lookups(temp_database):
+def test_recent_scan_history_excludes_unsuccessful_barcode_lookups_by_default(temp_database):
     assert prepare_persistence() is True
 
     lookup_product(ProductLookupRequest(barcode="9999999999999"))
 
     response = recent_scan_history(limit=10)
+
+    assert response.items == []
+
+
+def test_recent_scan_history_include_misses_flag_restores_unsuccessful_barcode_lookups(temp_database):
+    assert prepare_persistence() is True
+
+    lookup_product(ProductLookupRequest(barcode="9999999999999"))
+
+    response = recent_scan_history(limit=10, include_misses=True)
 
     assert len(response.items) == 1
     item = response.items[0]
@@ -119,6 +129,58 @@ def test_recent_scan_history_marks_manual_barcode_enrichment(temp_database):
     assert item.image_url is None
     assert item.product_source == "text_scan"
     assert item.submitted_ingredient_text == "Water, Sweet Almond Oil"
+
+
+def test_recent_scan_history_keeps_inconsistent_provider_records_visible(temp_database):
+    assert prepare_persistence() is True
+
+    from app.services.persistence import persist_scan_result
+
+    persist_scan_result(
+        "",
+        {
+            "status": "cannot_verify",
+            "matched_ingredients": [],
+            "explanation": (
+                "A product record was found, but the lookup source returned inconsistent "
+                "product details. Please verify the physical label or enter the ingredients manually."
+            ),
+        },
+        scan_type="barcode_lookup",
+        submitted_barcode="0041167055106",
+    )
+
+    response = recent_scan_history(limit=10)
+
+    assert len(response.items) == 1
+    item = response.items[0]
+    assert item.barcode == "0041167055106"
+    assert item.assessment_status == "cannot_verify"
+    assert "inconsistent product details" in (item.explanation or "")
+
+
+def test_missed_barcode_summary_groups_repeated_misses(temp_database):
+    assert prepare_persistence() is True
+
+    lookup_product(ProductLookupRequest(barcode="9999999999999"))
+    lookup_product(ProductLookupRequest(barcode="9999999999999"))
+    lookup_product(ProductLookupRequest(barcode="8888888888888"))
+
+    response = missed_barcode_summary(limit=10)
+
+    assert len(response.items) == 2
+    first = response.items[0]
+    second = response.items[1]
+
+    assert first.barcode == "9999999999999"
+    assert first.miss_count == 2
+    assert first.first_seen_at <= first.last_seen_at
+    assert first.latest_explanation == (
+        "No product record with a usable ingredient list was found for this barcode."
+    )
+
+    assert second.barcode == "8888888888888"
+    assert second.miss_count == 1
 
 
 def test_recent_scan_history_migrates_legacy_database_rows(monkeypatch, tmp_path):

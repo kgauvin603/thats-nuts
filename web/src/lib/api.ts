@@ -3,7 +3,10 @@ import type {
   IngredientCheckResponse,
   ProductLookupResponse,
 } from './types';
-import type { ScanHistoryResponse } from './history';
+import type {
+  MissedBarcodeSummaryResponse,
+  ScanHistoryResponse,
+} from './history';
 
 export class ApiError extends Error {
   constructor(message: string) {
@@ -62,4 +65,10 @@ export function checkIngredients(ingredientText: string) {
 
 export function fetchScanHistory(limit = 20) {
   return getJson<ScanHistoryResponse>(`/scan-history?limit=${limit}`);
+}
+
+export function fetchMissedBarcodeSummary(limit = 10) {
+  return getJson<MissedBarcodeSummaryResponse>(
+    `/scan-history/missed-barcodes?limit=${limit}`,
+  );
 }

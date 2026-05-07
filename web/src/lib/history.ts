@@ -4,6 +4,10 @@ export interface ScanHistoryResponse {
   items: ScanHistoryItem[];
 }
 
+export interface MissedBarcodeSummaryResponse {
+  items: MissedBarcodeSummaryItem[];
+}
+
 export interface ScanHistoryItem {
   scan_type: 'manual_ingredient_check' | 'barcode_lookup' | 'barcode_enrichment';
   barcode?: string | null;
@@ -16,6 +20,14 @@ export interface ScanHistoryItem {
   explanation?: string | null;
   matched_ingredient_summary?: string | null;
   created_at: string;
+}
+
+export interface MissedBarcodeSummaryItem {
+  barcode: string;
+  miss_count: number;
+  first_seen_at: string;
+  last_seen_at: string;
+  latest_explanation?: string | null;
 }
 
 export interface HistoryEntry {
@@ -31,6 +43,15 @@ export interface HistoryEntry {
   matchedSummary?: string;
   submittedIngredientText?: string;
   productSource?: string;
+}
+
+export interface MissedBarcodeEntry {
+  id: string;
+  barcode: string;
+  missCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  latestExplanation?: string;
 }
 
 export function toHistoryEntries(response: ScanHistoryResponse): HistoryEntry[] {
@@ -84,4 +105,17 @@ function formatDateTime(value: string) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
+}
+
+export function toMissedBarcodeEntries(
+  response: MissedBarcodeSummaryResponse,
+): MissedBarcodeEntry[] {
+  return response.items.map((item) => ({
+    id: `${item.barcode}-${item.last_seen_at}`,
+    barcode: item.barcode,
+    missCount: item.miss_count,
+    firstSeenAt: formatDateTime(item.first_seen_at),
+    lastSeenAt: formatDateTime(item.last_seen_at),
+    latestExplanation: item.latest_explanation ?? undefined,
+  }));
 }

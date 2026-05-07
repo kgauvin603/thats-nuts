@@ -1,29 +1,55 @@
 import { useEffect, useState } from 'react';
-import { fetchScanHistory } from '../lib/api';
-import { toHistoryEntries, type HistoryEntry } from '../lib/history';
+import { fetchMissedBarcodeSummary, fetchScanHistory } from '../lib/api';
+import {
+  toHistoryEntries,
+  toMissedBarcodeEntries,
+  type HistoryEntry,
+  type MissedBarcodeEntry,
+} from '../lib/history';
 import { ProductImageCard } from './ProductImageCard';
 
 export function HistorySection() {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [misses, setMisses] = useState<MissedBarcodeEntry[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState(false);
+  const [isMissesLoading, setIsMissesLoading] = useState(true);
+  const [missesError, setMissesError] = useState(false);
 
   async function loadHistory() {
-    setIsLoading(true);
-    setError(false);
+    setIsHistoryLoading(true);
+    setHistoryError(false);
 
     try {
       const response = await fetchScanHistory();
       setEntries(toHistoryEntries(response));
     } catch {
-      setError(true);
+      setHistoryError(true);
     } finally {
-      setIsLoading(false);
+      setIsHistoryLoading(false);
     }
   }
 
+  async function loadMisses() {
+    setIsMissesLoading(true);
+    setMissesError(false);
+
+    try {
+      const response = await fetchMissedBarcodeSummary();
+      setMisses(toMissedBarcodeEntries(response));
+    } catch {
+      setMissesError(true);
+    } finally {
+      setIsMissesLoading(false);
+    }
+  }
+
+  async function refreshAll() {
+    await Promise.all([loadHistory(), loadMisses()]);
+  }
+
   useEffect(() => {
-    void loadHistory();
+    void refreshAll();
   }, []);
 
   return (
@@ -39,32 +65,72 @@ export function HistorySection() {
         </div>
         <button
           className="button button-secondary"
-          onClick={() => void loadHistory()}
+          onClick={() => void refreshAll()}
           type="button"
         >
           Refresh
         </button>
       </div>
 
-      {isLoading ? (
+      <section className="history-state-card missed-barcode-panel">
+        <div className="missed-barcode-header">
+          <div>
+            <span className="eyebrow">Operational telemetry</span>
+            <h3>Unresolved barcode scans</h3>
+            <p className="history-caption">
+              Repeated barcode lookups that still do not resolve to a usable product
+              record. This panel stays separate from the user-facing result history.
+            </p>
+          </div>
+        </div>
+
+        {isMissesLoading ? <p>Loading unresolved barcode summary...</p> : null}
+
+        {!isMissesLoading && missesError ? (
+          <p>Unresolved barcode summary could not be loaded.</p>
+        ) : null}
+
+        {!isMissesLoading && !missesError && misses.length === 0 ? (
+          <p>No unresolved barcode misses yet.</p>
+        ) : null}
+
+        {!isMissesLoading && !missesError && misses.length > 0 ? (
+          <div className="missed-barcode-list">
+            {misses.map((entry) => (
+              <article className="missed-barcode-card" key={entry.id}>
+                <div className="missed-barcode-meta">
+                  <strong>{entry.barcode}</strong>
+                  <div className="pill-list">
+                    <span className="pill">{entry.missCount} misses</span>
+                    <span className="pill">Last seen {entry.lastSeenAt}</span>
+                  </div>
+                </div>
+                <p>{entry.latestExplanation || 'No explanation was returned.'}</p>
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      {isHistoryLoading ? (
         <div className="history-state-card">
           <p>Loading history...</p>
         </div>
       ) : null}
 
-      {!isLoading && error ? (
+      {!isHistoryLoading && historyError ? (
         <div className="history-state-card">
           <p>History could not be loaded. Please try again.</p>
         </div>
       ) : null}
 
-      {!isLoading && !error && entries.length === 0 ? (
+      {!isHistoryLoading && !historyError && entries.length === 0 ? (
         <div className="history-state-card">
           <p>No recent scans yet.</p>
         </div>
       ) : null}
 
-      {!isLoading && !error && entries.length > 0 ? (
+      {!isHistoryLoading && !historyError && entries.length > 0 ? (
         <div className="history-grid">
           {entries.map((entry) => (
             <article className="history-card" key={entry.id}>

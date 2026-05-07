@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from typing import Dict, List, Optional
 
 from sqlalchemy import inspect, or_, text
@@ -18,7 +19,7 @@ from app.models import (
 )
 from app.models.records import utcnow
 from app.schemas.ingredients import AllergyProfile
-from app.schemas.history import ScanHistoryEntry
+from app.schemas.history import MissedBarcodeSummaryEntry, ScanHistoryEntry
 from app.schemas.products import NormalizedProduct, SavedProductEntry
 from app.services.seed_rules import SeedIngredientRule, load_seed_rule_set
 
@@ -232,47 +233,117 @@ def product_to_schema(product: Product) -> NormalizedProduct:
     )
 
 
-def list_recent_scan_history(limit: int = 20) -> List[ScanHistoryEntry]:
+MISS_EXPLANATION_MARKERS = (
+    "no product record with a usable ingredient list was found for this barcode",
+    "no product record",
+    "not found",
+    "enrichment failed",
+)
+INCONSISTENT_EXPLANATION_MARKER = "source returned inconsistent product details"
+
+
+def list_recent_scan_history(limit: int = 20, include_misses: bool = False) -> List[ScanHistoryEntry]:
     try:
         with session_scope() as session:
-            scans = session.exec(
-                select(ScanHistory).order_by(ScanHistory.created_at.desc()).limit(limit)
-            ).all()
+            scans = session.exec(select(ScanHistory).order_by(ScanHistory.created_at.desc())).all()
             product_ids = [scan.product_id for scan in scans if scan.product_id is not None]
             products_by_id: Dict[int, Product] = {}
             if product_ids:
                 products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
                 products_by_id = {product.id: product for product in products if product.id is not None}
 
-            return [
-                ScanHistoryEntry(
-                    scan_type=scan.scan_type,
-                    barcode=products_by_id.get(scan.product_id).barcode
-                    if scan.product_id is not None and products_by_id.get(scan.product_id)
-                    else scan.submitted_barcode,
-                    product_name=products_by_id.get(scan.product_id).product_name
-                    if scan.product_id is not None and products_by_id.get(scan.product_id)
-                    else None,
-                    brand_name=products_by_id.get(scan.product_id).brand_name
-                    if scan.product_id is not None and products_by_id.get(scan.product_id)
-                    else None,
-                    image_url=products_by_id.get(scan.product_id).image_url
-                    if scan.product_id is not None and products_by_id.get(scan.product_id)
-                    else None,
-                    product_source=products_by_id.get(scan.product_id).source
-                    if scan.product_id is not None and products_by_id.get(scan.product_id)
-                    else None,
-                    submitted_ingredient_text=scan.submitted_ingredient_text or None,
-                    assessment_status=scan.result_status,
-                    explanation=scan.explanation,
-                    matched_ingredient_summary=build_matched_ingredient_summary(scan.matched_ingredients),
-                    created_at=scan.created_at,
-                )
-                for scan in scans
-            ]
+            items: List[ScanHistoryEntry] = []
+            for scan in scans:
+                entry = _scan_history_entry_from_record(scan, products_by_id)
+                if not include_misses and is_unresolved_barcode_lookup_miss(entry):
+                    continue
+                items.append(entry)
+                if len(items) >= limit:
+                    break
+            return items
     except Exception:
         logger.exception("Recent scan history lookup failed.")
         return []
+
+
+def list_missed_barcodes(limit: int = 20) -> List[MissedBarcodeSummaryEntry]:
+    try:
+        with session_scope() as session:
+            scans = session.exec(select(ScanHistory).order_by(ScanHistory.created_at.desc())).all()
+            product_ids = [scan.product_id for scan in scans if scan.product_id is not None]
+            products_by_id: Dict[int, Product] = {}
+            if product_ids:
+                products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
+                products_by_id = {product.id: product for product in products if product.id is not None}
+
+            grouped: dict[str, list[ScanHistoryEntry]] = defaultdict(list)
+            for scan in scans:
+                entry = _scan_history_entry_from_record(scan, products_by_id)
+                if is_unresolved_barcode_lookup_miss(entry) and entry.barcode:
+                    grouped[entry.barcode].append(entry)
+
+            summaries = [
+                MissedBarcodeSummaryEntry(
+                    barcode=barcode,
+                    miss_count=len(entries),
+                    first_seen_at=min(entry.created_at for entry in entries),
+                    last_seen_at=max(entry.created_at for entry in entries),
+                    latest_explanation=sorted(
+                        entries,
+                        key=lambda entry: entry.created_at,
+                        reverse=True,
+                    )[0].explanation,
+                )
+                for barcode, entries in grouped.items()
+            ]
+            summaries.sort(key=lambda item: (-item.miss_count, -item.last_seen_at.timestamp()))
+            return summaries[:limit]
+    except Exception:
+        logger.exception("Missed barcode summary lookup failed.")
+        return []
+
+
+def _scan_history_entry_from_record(
+    scan: ScanHistory,
+    products_by_id: Dict[int, Product],
+) -> ScanHistoryEntry:
+    product = products_by_id.get(scan.product_id) if scan.product_id is not None else None
+    return ScanHistoryEntry(
+        scan_type=scan.scan_type,
+        barcode=product.barcode if product else scan.submitted_barcode,
+        product_name=product.product_name if product else None,
+        brand_name=product.brand_name if product else None,
+        image_url=product.image_url if product else None,
+        product_source=product.source if product else None,
+        submitted_ingredient_text=scan.submitted_ingredient_text or None,
+        assessment_status=scan.result_status,
+        explanation=scan.explanation,
+        matched_ingredient_summary=build_matched_ingredient_summary(scan.matched_ingredients),
+        created_at=scan.created_at,
+    )
+
+
+def is_unresolved_barcode_lookup_miss(entry: ScanHistoryEntry) -> bool:
+    if entry.scan_type != "barcode_lookup":
+        return False
+    if not entry.barcode:
+        return False
+    if entry.product_name or entry.brand_name or entry.image_url or entry.product_source:
+        return False
+    if entry.submitted_ingredient_text and entry.submitted_ingredient_text.strip():
+        return False
+    if entry.assessment_status != "cannot_verify":
+        return False
+    if entry.matched_ingredient_summary and entry.matched_ingredient_summary.strip():
+        return False
+
+    explanation = (entry.explanation or "").strip().lower()
+    if not explanation:
+        return False
+    if INCONSISTENT_EXPLANATION_MARKER in explanation:
+        return False
+
+    return any(marker in explanation for marker in MISS_EXPLANATION_MARKERS)
 
 
 def ensure_products_schema() -> bool:

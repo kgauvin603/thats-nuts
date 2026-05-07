@@ -29,3 +29,15 @@ class ScanHistoryEntry(BaseModel):
 
 class ScanHistoryResponse(BaseModel):
     items: List[ScanHistoryEntry] = Field(default_factory=list)
+
+
+class MissedBarcodeSummaryEntry(BaseModel):
+    barcode: str
+    miss_count: int
+    first_seen_at: datetime
+    last_seen_at: datetime
+    latest_explanation: Optional[str] = None
+
+
+class MissedBarcodeSummaryResponse(BaseModel):
+    items: List[MissedBarcodeSummaryEntry] = Field(default_factory=list)
