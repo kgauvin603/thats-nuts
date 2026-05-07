@@ -78,6 +78,7 @@ PRODUCT_LOOKUP_BASE_URL=https://world.openfoodfacts.org
 PRODUCT_LOOKUP_API_KEY=
 PRODUCT_LOOKUP_USER_AGENT="ThatsNuts/1.0 - contact: support@activeadvantage.co"
 PRODUCT_LOOKUP_TIMEOUT_SECONDS=5.0
+CORS_ALLOWED_ORIGINS=https://thatsnuts.activeadvantage.co,http://thatsnuts.activeadvantage.co,https://api.thatsnuts.activeadvantage.co,http://localhost:5173,http://127.0.0.1:5173
 ```
 
 The app itself does not load dotenv files automatically. The helper script does.

@@ -21,6 +21,13 @@ class Settings(BaseModel):
     product_lookup_api_key: str = ""
     product_lookup_user_agent: str = DEFAULT_PRODUCT_LOOKUP_USER_AGENT
     product_lookup_timeout_seconds: float = 5.0
+    cors_allowed_origins: list[str] = [
+        "https://thatsnuts.activeadvantage.co",
+        "http://thatsnuts.activeadvantage.co",
+        "https://api.thatsnuts.activeadvantage.co",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
 
 
 def _read_bool_env(name: str, default: bool) -> bool:
@@ -28,6 +35,14 @@ def _read_bool_env(name: str, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _read_csv_env(name: str, default: list[str]) -> list[str]:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    items = [item.strip() for item in value.split(",")]
+    return [item for item in items if item]
 
 
 @lru_cache(maxsize=1)
@@ -55,6 +70,16 @@ def get_settings() -> Settings:
             os.getenv("PRODUCT_LOOKUP_USER_AGENT") or DEFAULT_PRODUCT_LOOKUP_USER_AGENT
         ),
         product_lookup_timeout_seconds=float(os.getenv("PRODUCT_LOOKUP_TIMEOUT_SECONDS", "5.0")),
+        cors_allowed_origins=_read_csv_env(
+            "CORS_ALLOWED_ORIGINS",
+            [
+                "https://thatsnuts.activeadvantage.co",
+                "http://thatsnuts.activeadvantage.co",
+                "https://api.thatsnuts.activeadvantage.co",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+        ),
     )
 
 

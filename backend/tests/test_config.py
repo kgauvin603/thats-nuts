@@ -37,3 +37,21 @@ def test_settings_allow_port_override(monkeypatch):
 
     monkeypatch.delenv("APP_PORT", raising=False)
     get_settings.cache_clear()
+
+
+def test_settings_allow_cors_allowed_origins_override(monkeypatch):
+    monkeypatch.setenv(
+        "CORS_ALLOWED_ORIGINS",
+        "https://thatsnuts.activeadvantage.co,http://localhost:5173",
+    )
+    get_settings.cache_clear()
+
+    settings = get_settings()
+
+    assert settings.cors_allowed_origins == [
+        "https://thatsnuts.activeadvantage.co",
+        "http://localhost:5173",
+    ]
+
+    monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
+    get_settings.cache_clear()
