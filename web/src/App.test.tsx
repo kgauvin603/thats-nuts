@@ -8,12 +8,15 @@ import {
 } from './lib/constants';
 
 vi.mock('./lib/api', () => ({
+  ApiError: class ApiError extends Error {},
   checkIngredients: vi.fn(),
+  fetchGroupedScanHistory: vi.fn().mockResolvedValue({ items: [] }),
   fetchInconsistentBarcodeSummary: vi.fn().mockResolvedValue({ items: [] }),
   fetchMissedBarcodeSummary: vi.fn().mockResolvedValue({ items: [] }),
   fetchScanHistory: vi.fn().mockResolvedValue({ items: [] }),
   getApiBaseUrl: () => 'https://api.thatsnuts.activeadvantage.co',
   lookupProduct: vi.fn(),
+  uploadProductPhoto: vi.fn(),
 }));
 
 function createStorageMock() {

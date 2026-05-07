@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.health import router as health_router
 from app.api.routes.check_ingredients import router as check_ingredients_router
@@ -27,6 +29,14 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+)
+
+product_photo_upload_dir = Path(settings.product_photo_upload_dir)
+product_photo_upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    settings.product_photo_upload_url_path,
+    StaticFiles(directory=product_photo_upload_dir),
+    name="product-photo-uploads",
 )
 
 app.include_router(health_router)

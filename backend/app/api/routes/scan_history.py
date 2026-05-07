@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Query
 
 from app.schemas.history import (
+    GroupedScanHistoryResponse,
     InconsistentBarcodeSummaryResponse,
     MissedBarcodeSummaryResponse,
     ScanHistoryResponse,
 )
 from app.services.persistence import (
+    list_grouped_useful_scan_history,
     list_inconsistent_barcodes,
     list_missed_barcodes,
     list_recent_scan_history,
@@ -27,6 +29,11 @@ def recent_scan_history(
             include_inconsistent=include_inconsistent,
         )
     )
+
+
+@router.get("/scan-history/grouped", response_model=GroupedScanHistoryResponse)
+def grouped_scan_history(limit: int = Query(default=20, ge=1, le=100)) -> GroupedScanHistoryResponse:
+    return GroupedScanHistoryResponse(items=list_grouped_useful_scan_history(limit=limit))
 
 
 @router.get(

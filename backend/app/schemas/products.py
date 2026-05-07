@@ -69,3 +69,10 @@ class SavedProductEntry(BaseModel):
 
 class SavedProductsResponse(BaseModel):
     items: List[SavedProductEntry] = Field(default_factory=list)
+
+
+class ProductPhotoUploadResponse(BaseModel):
+    barcode: str
+    image_url: str
+    updated: bool
+    message: str

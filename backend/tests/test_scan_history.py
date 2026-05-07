@@ -6,6 +6,7 @@ from app.api.routes.product_lookup import enrich_product, lookup_product
 from app.core.config import get_settings
 from app.db.session import get_engine
 from app.api.routes.scan_history import (
+    grouped_scan_history,
     inconsistent_barcode_summary,
     missed_barcode_summary,
     recent_scan_history,
@@ -211,6 +212,133 @@ def test_recent_scan_history_default_excludes_inconsistent_provider_records(temp
     )
 
     response = recent_scan_history(limit=10)
+
+    assert response.items == []
+
+
+def test_grouped_scan_history_groups_repeated_successful_barcode_lookups(temp_database):
+    assert prepare_persistence() is True
+
+    for _ in range(5):
+        lookup_product(ProductLookupRequest(barcode="0001234567890"))
+
+    response = grouped_scan_history(limit=10)
+
+    assert len(response.items) == 1
+    item = response.items[0]
+    assert item.barcode == "0001234567890"
+    assert item.scan_type == "barcode_lookup"
+    assert item.grouped_scan_type == "barcode_lookup"
+    assert item.scan_count == 5
+    assert item.product_name == "Sample Almond Body Oil"
+    assert item.brand_name == "Thats Nuts Labs"
+    assert item.image_url == "https://images.example.invalid/products/0001234567890.jpg"
+    assert item.product_source == "stub"
+    assert item.assessment_status == "contains_nut_ingredient"
+    assert item.matched_ingredient_summary == "Prunus Amygdalus Dulcis Oil"
+    assert item.first_seen_at <= item.last_seen_at
+
+
+def test_grouped_scan_history_uses_latest_product_details(temp_database):
+    assert prepare_persistence() is True
+
+    enrich_product(
+        ProductEnrichmentRequest(
+            barcode="5555555555555",
+            product_name="Original Lotion",
+            brand_name="Original Brand",
+            ingredient_text="Water, Sweet Almond Oil",
+            source="text_scan",
+        )
+    )
+    enrich_product(
+        ProductEnrichmentRequest(
+            barcode="5555555555555",
+            product_name="Updated Lotion",
+            brand_name="Updated Brand",
+            ingredient_text="Water, Sweet Almond Oil",
+            source="text_scan",
+        )
+    )
+
+    response = grouped_scan_history(limit=10)
+
+    assert len(response.items) == 1
+    item = response.items[0]
+    assert item.barcode == "5555555555555"
+    assert item.scan_count == 2
+    assert item.product_name == "Updated Lotion"
+    assert item.brand_name == "Updated Brand"
+
+
+def test_grouped_scan_history_keeps_barcode_enrichment_visible(temp_database):
+    assert prepare_persistence() is True
+
+    for _ in range(2):
+        enrich_product(
+            ProductEnrichmentRequest(
+                barcode="5555555555555",
+                product_name="Demo Lotion",
+                brand_name="Demo Brand",
+                ingredient_text="Water, Sweet Almond Oil",
+                source="text_scan",
+            )
+        )
+
+    response = grouped_scan_history(limit=10)
+
+    assert len(response.items) == 1
+    item = response.items[0]
+    assert item.scan_type == "barcode_enrichment"
+    assert item.grouped_scan_type == "barcode_enrichment"
+    assert item.barcode == "5555555555555"
+    assert item.scan_count == 2
+
+
+def test_grouped_scan_history_keeps_manual_checks_visible(temp_database):
+    assert prepare_persistence() is True
+
+    check_ingredients(
+        IngredientCheckRequest(
+            ingredient_text="Water, Glycerin",
+        )
+    )
+    check_ingredients(
+        IngredientCheckRequest(
+            ingredient_text="Water, Shea Butter",
+        )
+    )
+
+    response = grouped_scan_history(limit=10)
+
+    assert len(response.items) == 2
+    assert response.items[0].scan_type == "manual_ingredient_check"
+    assert response.items[0].scan_count == 1
+    assert response.items[1].scan_type == "manual_ingredient_check"
+    assert response.items[1].scan_count == 1
+
+
+def test_grouped_scan_history_excludes_misses_and_inconsistent_records(temp_database):
+    assert prepare_persistence() is True
+
+    lookup_product(ProductLookupRequest(barcode="9999999999999"))
+    from app.services.persistence import persist_scan_result
+
+    persist_scan_result(
+        "",
+        {
+            "status": "cannot_verify",
+            "matched_ingredients": [],
+            "explanation": (
+                "A product record was found, but the lookup source returned inconsistent "
+                "product details. Please verify the physical label or enter the ingredients manually."
+            ),
+        },
+        scan_type="barcode_lookup",
+        submitted_barcode="0041167055106",
+    )
+
+    response = grouped_scan_history(limit=10)
 
     assert response.items == []
 

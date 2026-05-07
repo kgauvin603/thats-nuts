@@ -21,6 +21,10 @@ class Settings(BaseModel):
     product_lookup_api_key: str = ""
     product_lookup_user_agent: str = DEFAULT_PRODUCT_LOOKUP_USER_AGENT
     product_lookup_timeout_seconds: float = 5.0
+    public_api_base_url: str = "https://api.thatsnuts.activeadvantage.co"
+    product_photo_upload_dir: str = "backend/uploads/product_photos"
+    product_photo_upload_url_path: str = "/uploads/product_photos"
+    product_photo_max_bytes: int = 8 * 1024 * 1024
     cors_allowed_origins: list[str] = [
         "https://thatsnuts.activeadvantage.co",
         "http://thatsnuts.activeadvantage.co",
@@ -70,6 +74,19 @@ def get_settings() -> Settings:
             os.getenv("PRODUCT_LOOKUP_USER_AGENT") or DEFAULT_PRODUCT_LOOKUP_USER_AGENT
         ),
         product_lookup_timeout_seconds=float(os.getenv("PRODUCT_LOOKUP_TIMEOUT_SECONDS", "5.0")),
+        public_api_base_url=os.getenv(
+            "PUBLIC_API_BASE_URL",
+            "https://api.thatsnuts.activeadvantage.co",
+        ).rstrip("/"),
+        product_photo_upload_dir=os.getenv(
+            "PRODUCT_PHOTO_UPLOAD_DIR",
+            "backend/uploads/product_photos",
+        ),
+        product_photo_upload_url_path=os.getenv(
+            "PRODUCT_PHOTO_UPLOAD_URL_PATH",
+            "/uploads/product_photos",
+        ),
+        product_photo_max_bytes=int(os.getenv("PRODUCT_PHOTO_MAX_BYTES", str(8 * 1024 * 1024))),
         cors_allowed_origins=_read_csv_env(
             "CORS_ALLOWED_ORIGINS",
             [

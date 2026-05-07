@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import {
+  fetchGroupedScanHistory,
   fetchInconsistentBarcodeSummary,
   fetchMissedBarcodeSummary,
-  fetchScanHistory,
 } from '../lib/api';
 import {
   toInconsistentBarcodeEntries,
-  toHistoryEntries,
+  toGroupedHistoryEntries,
   toMissedBarcodeEntries,
   type HistoryEntry,
   type InconsistentBarcodeEntry,
   type MissedBarcodeEntry,
 } from '../lib/history';
+import { ProductPhotoUpload } from './ProductPhotoUpload';
 import { ProductImageCard } from './ProductImageCard';
 
 export function HistorySection() {
@@ -24,14 +25,15 @@ export function HistorySection() {
   const [inconsistentError, setInconsistentError] = useState(false);
   const [isMissesLoading, setIsMissesLoading] = useState(true);
   const [missesError, setMissesError] = useState(false);
+  const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
 
   async function loadHistory() {
     setIsHistoryLoading(true);
     setHistoryError(false);
 
     try {
-      const response = await fetchScanHistory();
-      setEntries(toHistoryEntries(response));
+      const response = await fetchGroupedScanHistory();
+      setEntries(toGroupedHistoryEntries(response));
     } catch {
       setHistoryError(true);
     } finally {
@@ -82,7 +84,7 @@ export function HistorySection() {
           <span className="eyebrow">Recent activity</span>
           <h2>History</h2>
           <p className="history-caption">
-            Recent barcode lookups, barcode enrichments, and manual ingredient
+            Grouped recent barcode lookups, barcode enrichments, and manual ingredient
             checks from the backend scan history.
           </p>
         </div>
@@ -131,7 +133,7 @@ export function HistorySection() {
               <article className="history-card" key={entry.id}>
                 <div className="history-card-top">
                   <ProductImageCard
-                    imageUrl={entry.imageUrl}
+                    imageUrl={imageOverrides[entry.barcode || ''] || entry.imageUrl}
                     productName={entry.productName || entry.scanType}
                   />
                   <div className="history-card-summary">
@@ -140,7 +142,17 @@ export function HistorySection() {
                     <p>{entry.brandName || 'Brand unavailable'}</p>
                     <div className="pill-list">
                       <span className="pill">{entry.assessmentLabel}</span>
-                      <span className="pill">{entry.createdAt}</span>
+                      <span className="pill">
+                        {entry.scanCount === 1 ? '1 successful scan' : `${entry.scanCount} successful scans`}
+                      </span>
+                      {entry.firstSeenAt ? (
+                        <span className="pill">First seen {entry.firstSeenAt}</span>
+                      ) : null}
+                      {entry.lastSeenAt ? (
+                        <span className="pill">Last seen {entry.lastSeenAt}</span>
+                      ) : (
+                        <span className="pill">{entry.createdAt}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -176,6 +188,24 @@ export function HistorySection() {
                   <span className="detail-label">Summary</span>
                   <p>{entry.explanation || 'No additional explanation was returned.'}</p>
                 </div>
+
+                {entry.barcode && !imageOverrides[entry.barcode] && !entry.imageUrl ? (
+                  <ProductPhotoUpload
+                    barcode={entry.barcode}
+                    buttonLabel={
+                      entry.rawScanType === 'barcode_enrichment'
+                        ? 'Add product photo'
+                        : 'Add photo'
+                    }
+                    helperText="Add a product photo to make this saved enrichment easier to recognize."
+                    onUploaded={(imageUrl) => {
+                      setImageOverrides((current) => ({
+                        ...current,
+                        [entry.barcode!]: imageUrl,
+                      }));
+                    }}
+                  />
+                ) : null}
               </article>
             ))}
           </div>

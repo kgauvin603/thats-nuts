@@ -31,6 +31,29 @@ class ScanHistoryResponse(BaseModel):
     items: List[ScanHistoryEntry] = Field(default_factory=list)
 
 
+class GroupedScanHistoryEntry(BaseModel):
+    scan_type: ScanType
+    grouped_scan_type: ScanType
+    barcode: Optional[str] = None
+    product_name: Optional[str] = None
+    brand_name: Optional[str] = None
+    image_url: Optional[str] = None
+    product_source: Optional[str] = None
+    submitted_ingredient_text: Optional[str] = None
+    assessment_status: IngredientCheckStatus
+    explanation: Optional[str] = None
+    matched_ingredient_summary: Optional[str] = None
+    scan_count: int = 1
+    first_seen_at: datetime
+    last_seen_at: datetime
+    latest_explanation: Optional[str] = None
+    latest_source: Optional[str] = None
+
+
+class GroupedScanHistoryResponse(BaseModel):
+    items: List[GroupedScanHistoryEntry] = Field(default_factory=list)
+
+
 class MissedBarcodeSummaryEntry(BaseModel):
     barcode: str
     miss_count: int

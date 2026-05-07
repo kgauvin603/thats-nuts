@@ -8,7 +8,9 @@ FastAPI backend for the Thats Nuts MVP.
 - `POST /check-ingredients`
 - `POST /lookup-product`
 - `POST /enrich-product`
+- `POST /products/{barcode}/photo`
 - `GET /scan-history`
+- `GET /scan-history/grouped`
 - `GET /test-ui`
 
 ## Reliable local run flow
@@ -78,6 +80,10 @@ PRODUCT_LOOKUP_BASE_URL=https://world.openfoodfacts.org
 PRODUCT_LOOKUP_API_KEY=
 PRODUCT_LOOKUP_USER_AGENT="ThatsNuts/1.0 - contact: support@activeadvantage.co"
 PRODUCT_LOOKUP_TIMEOUT_SECONDS=5.0
+PUBLIC_API_BASE_URL=https://api.thatsnuts.activeadvantage.co
+PRODUCT_PHOTO_UPLOAD_DIR=backend/uploads/product_photos
+PRODUCT_PHOTO_UPLOAD_URL_PATH=/uploads/product_photos
+PRODUCT_PHOTO_MAX_BYTES=8388608
 CORS_ALLOWED_ORIGINS=https://thatsnuts.activeadvantage.co,http://thatsnuts.activeadvantage.co,https://api.thatsnuts.activeadvantage.co,http://localhost:5173,http://127.0.0.1:5173
 ```
 
@@ -217,6 +223,43 @@ Production default behavior:
 - Open Food Facts first
 - Open Beauty Facts second
 - saved manual/text-scan enrichment data only as the final fallback
+
+## Product photo uploads
+
+Uploaded product photos are stored outside Git under:
+
+```bash
+backend/uploads/product_photos/
+```
+
+For the OEL9 deployment path described in this project, that resolves to:
+
+```bash
+/mnt/apps/ThatsNuts/backend/uploads/product_photos/
+```
+
+The upload endpoint is:
+
+```bash
+POST /products/{barcode}/photo
+```
+
+Current upload rules:
+
+- max size: `8 MB`
+- supported file types: `image/jpeg`, `image/png`, `image/webp`
+- `image/heic` / `image/heif` are rejected with a clear error for now
+- existing product images are preserved unless `overwrite=true` is supplied
+
+Uploaded photos are served back from the API domain under:
+
+```bash
+/uploads/product_photos/<filename>
+```
+
+Operational note:
+
+- include `backend/uploads/product_photos/` in server backups if user-uploaded product photos should be retained across host recovery or migrations
 
 The chained provider returns the first provider result with usable ingredient data. If Open Food Facts does not return usable ingredients, the service falls through to Open Beauty Facts before considering saved enrichment data.
 

@@ -3,27 +3,31 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HistorySection } from './HistorySection';
 
-const fetchScanHistory = vi.fn();
+const fetchGroupedScanHistory = vi.fn();
 const fetchInconsistentBarcodeSummary = vi.fn();
 const fetchMissedBarcodeSummary = vi.fn();
+const uploadProductPhoto = vi.fn();
 
 vi.mock('../lib/api', () => ({
+  ApiError: class ApiError extends Error {},
+  fetchGroupedScanHistory: (...args: unknown[]) => fetchGroupedScanHistory(...args),
   fetchInconsistentBarcodeSummary: (...args: unknown[]) =>
     fetchInconsistentBarcodeSummary(...args),
   fetchMissedBarcodeSummary: (...args: unknown[]) =>
     fetchMissedBarcodeSummary(...args),
-  fetchScanHistory: (...args: unknown[]) => fetchScanHistory(...args),
+  uploadProductPhoto: (...args: unknown[]) => uploadProductPhoto(...args),
 }));
 
 describe('HistorySection', () => {
   beforeEach(() => {
-    fetchScanHistory.mockReset();
+    fetchGroupedScanHistory.mockReset();
     fetchInconsistentBarcodeSummary.mockReset();
     fetchMissedBarcodeSummary.mockReset();
+    uploadProductPhoto.mockReset();
   });
 
   it('renders a loading state before history arrives', () => {
-    fetchScanHistory.mockReturnValue(new Promise(() => undefined));
+    fetchGroupedScanHistory.mockReturnValue(new Promise(() => undefined));
     fetchInconsistentBarcodeSummary.mockReturnValue(new Promise(() => undefined));
     fetchMissedBarcodeSummary.mockReturnValue(new Promise(() => undefined));
 
@@ -33,7 +37,7 @@ describe('HistorySection', () => {
   });
 
   it('renders an empty state when no history is returned', async () => {
-    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchGroupedScanHistory.mockResolvedValue({ items: [] });
     fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
     fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
@@ -48,7 +52,7 @@ describe('HistorySection', () => {
   });
 
   it('renders an error state when loading fails', async () => {
-    fetchScanHistory.mockRejectedValue(new Error('boom'));
+    fetchGroupedScanHistory.mockRejectedValue(new Error('boom'));
     fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
     fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
@@ -61,11 +65,12 @@ describe('HistorySection', () => {
     });
   });
 
-  it('renders product history details including barcode and image when present', async () => {
-    fetchScanHistory.mockResolvedValue({
+  it('renders grouped successful barcode history with count and image when present', async () => {
+    fetchGroupedScanHistory.mockResolvedValue({
       items: [
         {
           scan_type: 'barcode_lookup',
+          grouped_scan_type: 'barcode_lookup',
           barcode: '3017620422003',
           product_name: 'Nutella',
           brand_name: 'Ferrero',
@@ -76,7 +81,11 @@ describe('HistorySection', () => {
           assessment_status: 'contains_nut_ingredient',
           explanation: 'Hazelnut was detected.',
           matched_ingredient_summary: 'NOISETTES 13%',
-          created_at: '2026-05-07T11:30:00Z',
+          scan_count: 3,
+          first_seen_at: '2026-05-07T10:30:00Z',
+          last_seen_at: '2026-05-07T11:30:00Z',
+          latest_explanation: 'Hazelnut was detected.',
+          latest_source: 'open_food_facts',
         },
       ],
     });
@@ -91,15 +100,17 @@ describe('HistorySection', () => {
 
     expect(screen.getByText('3017620422003')).toBeInTheDocument();
     expect(screen.getByText('Nut ingredients detected')).toBeInTheDocument();
+    expect(screen.getByText('3 successful scans')).toBeInTheDocument();
     expect(screen.getByText('NOISETTES 13%')).toBeInTheDocument();
     expect(screen.getByAltText('Nutella')).toBeInTheDocument();
   });
 
   it('renders barcode enrichment and manual ingredient entries cleanly', async () => {
-    fetchScanHistory.mockResolvedValue({
+    fetchGroupedScanHistory.mockResolvedValue({
       items: [
         {
           scan_type: 'barcode_enrichment',
+          grouped_scan_type: 'barcode_enrichment',
           barcode: '5555555555555',
           product_name: 'Demo Lotion',
           brand_name: 'Demo Brand',
@@ -109,10 +120,15 @@ describe('HistorySection', () => {
           assessment_status: 'contains_nut_ingredient',
           explanation: 'Sweet almond oil was detected.',
           matched_ingredient_summary: 'Sweet Almond Oil',
-          created_at: '2026-05-07T11:31:00Z',
+          scan_count: 2,
+          first_seen_at: '2026-05-07T11:00:00Z',
+          last_seen_at: '2026-05-07T11:31:00Z',
+          latest_explanation: 'Sweet almond oil was detected.',
+          latest_source: 'text_scan',
         },
         {
           scan_type: 'manual_ingredient_check',
+          grouped_scan_type: 'manual_ingredient_check',
           barcode: null,
           product_name: null,
           brand_name: null,
@@ -122,7 +138,11 @@ describe('HistorySection', () => {
           assessment_status: 'no_nut_ingredient_found',
           explanation: 'No match found.',
           matched_ingredient_summary: null,
-          created_at: '2026-05-07T11:32:00Z',
+          scan_count: 1,
+          first_seen_at: '2026-05-07T11:32:00Z',
+          last_seen_at: '2026-05-07T11:32:00Z',
+          latest_explanation: 'No match found.',
+          latest_source: null,
         },
       ],
     });
@@ -139,18 +159,111 @@ describe('HistorySection', () => {
     expect(screen.getByText('Demo Lotion')).toBeInTheDocument();
     expect(screen.getByText('Water, Sweet Almond Oil')).toBeInTheDocument();
     expect(screen.getByText('Water, Glycerin')).toBeInTheDocument();
+    expect(screen.getByText('Add product photo')).toBeInTheDocument();
+  });
+
+  it('uploads a product photo from a no-image enrichment history entry', async () => {
+    const user = userEvent.setup();
+    fetchGroupedScanHistory.mockResolvedValue({
+      items: [
+        {
+          scan_type: 'barcode_enrichment',
+          grouped_scan_type: 'barcode_enrichment',
+          barcode: '5555555555555',
+          product_name: 'Demo Lotion',
+          brand_name: 'Demo Brand',
+          image_url: null,
+          product_source: 'text_scan',
+          submitted_ingredient_text: 'Water, Sweet Almond Oil',
+          assessment_status: 'contains_nut_ingredient',
+          explanation: 'Sweet almond oil was detected.',
+          matched_ingredient_summary: 'Sweet Almond Oil',
+          scan_count: 2,
+          first_seen_at: '2026-05-07T11:00:00Z',
+          last_seen_at: '2026-05-07T11:31:00Z',
+          latest_explanation: 'Sweet almond oil was detected.',
+          latest_source: 'text_scan',
+        },
+      ],
+    });
+    fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
+    uploadProductPhoto.mockResolvedValue({
+      barcode: '5555555555555',
+      image_url: 'https://api.thatsnuts.activeadvantage.co/uploads/product_photos/demo.png',
+      updated: true,
+      message: 'Product photo saved.',
+    });
+
+    render(<HistorySection />);
+
+    const input = await screen.findByLabelText('Add product photo');
+    await user.upload(
+      input,
+      new File(['image'], 'photo.png', { type: 'image/png' }),
+    );
+
+    await waitFor(() => {
+      expect(uploadProductPhoto).toHaveBeenCalledWith(
+        '5555555555555',
+        expect.any(File),
+      );
+    });
+  });
+
+  it('renders an upload error message when photo upload fails', async () => {
+    const user = userEvent.setup();
+    fetchGroupedScanHistory.mockResolvedValue({
+      items: [
+        {
+          scan_type: 'barcode_enrichment',
+          grouped_scan_type: 'barcode_enrichment',
+          barcode: '5555555555555',
+          product_name: 'Demo Lotion',
+          brand_name: 'Demo Brand',
+          image_url: null,
+          product_source: 'text_scan',
+          submitted_ingredient_text: 'Water, Sweet Almond Oil',
+          assessment_status: 'contains_nut_ingredient',
+          explanation: 'Sweet almond oil was detected.',
+          matched_ingredient_summary: 'Sweet Almond Oil',
+          scan_count: 2,
+          first_seen_at: '2026-05-07T11:00:00Z',
+          last_seen_at: '2026-05-07T11:31:00Z',
+          latest_explanation: 'Sweet almond oil was detected.',
+          latest_source: 'text_scan',
+        },
+      ],
+    });
+    fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
+    uploadProductPhoto.mockRejectedValue(new Error('upload failed'));
+
+    render(<HistorySection />);
+
+    const input = await screen.findByLabelText('Add product photo');
+    await user.upload(
+      input,
+      new File(['image'], 'photo.png', { type: 'image/png' }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Product photo upload failed. Please try again.'),
+      ).toBeInTheDocument();
+    });
   });
 
   it('refreshes history when the refresh button is pressed', async () => {
     const user = userEvent.setup();
-    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchGroupedScanHistory.mockResolvedValue({ items: [] });
     fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
     fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
     render(<HistorySection />);
 
     await waitFor(() => {
-      expect(fetchScanHistory).toHaveBeenCalledTimes(1);
+      expect(fetchGroupedScanHistory).toHaveBeenCalledTimes(1);
       expect(fetchInconsistentBarcodeSummary).toHaveBeenCalledTimes(1);
       expect(fetchMissedBarcodeSummary).toHaveBeenCalledTimes(1);
     });
@@ -158,14 +271,14 @@ describe('HistorySection', () => {
     await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
     await waitFor(() => {
-      expect(fetchScanHistory).toHaveBeenCalledTimes(2);
+      expect(fetchGroupedScanHistory).toHaveBeenCalledTimes(2);
       expect(fetchInconsistentBarcodeSummary).toHaveBeenCalledTimes(2);
       expect(fetchMissedBarcodeSummary).toHaveBeenCalledTimes(2);
     });
   });
 
   it('renders grouped inconsistent barcode entries once per barcode', async () => {
-    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchGroupedScanHistory.mockResolvedValue({ items: [] });
     fetchInconsistentBarcodeSummary.mockResolvedValue({
       items: [
         {
@@ -193,7 +306,7 @@ describe('HistorySection', () => {
   });
 
   it('renders unresolved barcode summary entries', async () => {
-    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchGroupedScanHistory.mockResolvedValue({ items: [] });
     fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
     fetchMissedBarcodeSummary.mockResolvedValue({
       items: [
@@ -223,7 +336,7 @@ describe('HistorySection', () => {
   });
 
   it('renders unresolved barcode summary empty state', async () => {
-    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchGroupedScanHistory.mockResolvedValue({ items: [] });
     fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
     fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
@@ -237,7 +350,7 @@ describe('HistorySection', () => {
   });
 
   it('renders unresolved barcode summary error state', async () => {
-    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchGroupedScanHistory.mockResolvedValue({ items: [] });
     fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
     fetchMissedBarcodeSummary.mockRejectedValue(new Error('boom'));
 
@@ -251,7 +364,7 @@ describe('HistorySection', () => {
   });
 
   it('renders inconsistent section error state cleanly', async () => {
-    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchGroupedScanHistory.mockResolvedValue({ items: [] });
     fetchInconsistentBarcodeSummary.mockRejectedValue(new Error('boom'));
     fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 
@@ -265,7 +378,7 @@ describe('HistorySection', () => {
   });
 
   it('renders sections in the required order', async () => {
-    fetchScanHistory.mockResolvedValue({ items: [] });
+    fetchGroupedScanHistory.mockResolvedValue({ items: [] });
     fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
     fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
 

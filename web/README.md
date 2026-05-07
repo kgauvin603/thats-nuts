@@ -44,6 +44,8 @@ Current tests cover:
 - disclaimer acceptance persistence
 - default API base URL
 - product image rendering and placeholder fallback
+- history grouping and barcode telemetry
+- product photo upload prompts and upload states
 
 ## API base URL
 
@@ -69,8 +71,27 @@ VITE_API_BASE_URL=https://api.example.com
 
 - Barcode lookup: `POST /lookup-product`
 - Manual ingredient review: `POST /check-ingredients`
+- Grouped useful history: `GET /scan-history/grouped`
+- Scan history: `GET /scan-history`
+- Inconsistent summary: `GET /scan-history/inconsistent-barcodes`
+- Missed barcode summary: `GET /scan-history/missed-barcodes`
+- Product photo upload: `POST /products/{barcode}/photo`
 
 These route names were discovered from the existing backend source under `backend/app/api/routes/`.
+
+Uploaded product photos are served from the backend API domain and stored on disk under:
+
+```text
+/mnt/apps/ThatsNuts/backend/uploads/product_photos/
+```
+
+Current backend upload rules:
+
+- max upload size: `8 MB`
+- accepted file types: `JPEG`, `PNG`, `WebP`
+- `HEIC` is rejected for now with a clear error
+
+If user-submitted product photos matter operationally, include `backend/uploads/product_photos/` in backups.
 
 ## Production deployment notes
 

@@ -202,7 +202,8 @@ p {
 .tool-card,
 .detail-panel,
 .product-image-card,
-.reminder-banner {
+.reminder-banner,
+.photo-upload-panel {
   background: rgba(255, 251, 246, 0.8);
 }
 
@@ -210,7 +211,8 @@ p {
 .info-card,
 .tool-card,
 .detail-panel,
-.reminder-banner {
+.reminder-banner,
+.photo-upload-panel {
   border: 1px solid rgba(210, 189, 164, 0.9);
   border-radius: 22px;
 }
@@ -316,6 +318,50 @@ p {
   padding: 1.2rem;
   display: grid;
   gap: 1rem;
+}
+
+.photo-upload-panel {
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.photo-upload-helper,
+.upload-panel-copy {
+  color: var(--color-muted);
+}
+
+.photo-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.photo-upload-button {
+  cursor: pointer;
+}
+
+.photo-upload-success {
+  color: var(--color-clear-fg);
+  font-weight: 700;
+}
+
+.photo-upload-error {
+  color: var(--color-caution-fg);
+  font-weight: 700;
+}
+
+.visually-hidden-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .history-card-top {

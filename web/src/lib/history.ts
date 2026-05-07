@@ -4,6 +4,10 @@ export interface ScanHistoryResponse {
   items: ScanHistoryItem[];
 }
 
+export interface GroupedScanHistoryResponse {
+  items: GroupedScanHistoryItem[];
+}
+
 export interface MissedBarcodeSummaryResponse {
   items: MissedBarcodeSummaryItem[];
 }
@@ -26,6 +30,25 @@ export interface ScanHistoryItem {
   created_at: string;
 }
 
+export interface GroupedScanHistoryItem {
+  scan_type: 'manual_ingredient_check' | 'barcode_lookup' | 'barcode_enrichment';
+  grouped_scan_type: 'manual_ingredient_check' | 'barcode_lookup' | 'barcode_enrichment';
+  barcode?: string | null;
+  product_name?: string | null;
+  brand_name?: string | null;
+  image_url?: string | null;
+  product_source?: string | null;
+  submitted_ingredient_text?: string | null;
+  assessment_status: IngredientCheckStatus;
+  explanation?: string | null;
+  matched_ingredient_summary?: string | null;
+  scan_count?: number | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  latest_explanation?: string | null;
+  latest_source?: string | null;
+}
+
 export interface MissedBarcodeSummaryItem {
   barcode: string;
   miss_count: number;
@@ -46,8 +69,12 @@ export interface InconsistentBarcodeSummaryItem {
 
 export interface HistoryEntry {
   id: string;
+  rawScanType: ScanHistoryItem['scan_type'];
   scanType: string;
   createdAt: string;
+  firstSeenAt?: string;
+  lastSeenAt?: string;
+  scanCount?: number;
   barcode?: string;
   productName?: string;
   brandName?: string;
@@ -82,6 +109,7 @@ export interface InconsistentBarcodeEntry {
 export function toHistoryEntries(response: ScanHistoryResponse): HistoryEntry[] {
   return response.items.map((item, index) => ({
     id: `${item.created_at}-${item.barcode || item.scan_type}-${index}`,
+    rawScanType: item.scan_type,
     scanType: formatScanType(item.scan_type),
     createdAt: formatDateTime(item.created_at),
     barcode: item.barcode ?? undefined,
@@ -93,6 +121,29 @@ export function toHistoryEntries(response: ScanHistoryResponse): HistoryEntry[] 
     matchedSummary: item.matched_ingredient_summary ?? undefined,
     submittedIngredientText: item.submitted_ingredient_text ?? undefined,
     productSource: item.product_source ?? undefined,
+  }));
+}
+
+export function toGroupedHistoryEntries(
+  response: GroupedScanHistoryResponse,
+): HistoryEntry[] {
+  return response.items.map((item, index) => ({
+    id: `${item.grouped_scan_type}-${item.barcode || item.last_seen_at}-${index}`,
+    rawScanType: item.grouped_scan_type,
+    scanType: formatScanType(item.grouped_scan_type),
+    createdAt: formatDateTime(item.last_seen_at),
+    firstSeenAt: formatDateTime(item.first_seen_at),
+    lastSeenAt: formatDateTime(item.last_seen_at),
+    scanCount: item.scan_count ?? 1,
+    barcode: item.barcode ?? undefined,
+    productName: item.product_name ?? undefined,
+    brandName: item.brand_name ?? undefined,
+    imageUrl: item.image_url ?? undefined,
+    assessmentLabel: formatAssessment(item.assessment_status),
+    explanation: item.latest_explanation ?? item.explanation ?? undefined,
+    matchedSummary: item.matched_ingredient_summary ?? undefined,
+    submittedIngredientText: item.submitted_ingredient_text ?? undefined,
+    productSource: item.latest_source ?? item.product_source ?? undefined,
   }));
 }
 

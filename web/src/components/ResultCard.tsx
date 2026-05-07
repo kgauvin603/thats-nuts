@@ -1,9 +1,11 @@
 import { RESULT_REMINDER } from '../lib/constants';
 import type { UnifiedResult } from '../lib/types';
+import { ProductPhotoUpload } from './ProductPhotoUpload';
 import { ProductImageCard } from './ProductImageCard';
 
 interface ResultCardProps {
   result: UnifiedResult;
+  onPhotoUploaded?: (imageUrl: string) => void;
 }
 
 function getStatusMeta(status: UnifiedResult['status']) {
@@ -39,7 +41,7 @@ function getStatusMeta(status: UnifiedResult['status']) {
   }
 }
 
-export function ResultCard({ result }: ResultCardProps) {
+export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
   const meta = getStatusMeta(result.status);
   const hasProductDetails =
     result.mode === 'barcode' &&
@@ -47,6 +49,14 @@ export function ResultCard({ result }: ResultCardProps) {
       result.product?.brand_name ||
       result.product?.image_url ||
       result.barcode);
+  const shouldOfferPhotoUpload =
+    result.mode === 'barcode' &&
+    Boolean(result.barcode) &&
+    !result.product?.image_url &&
+    Boolean(onPhotoUploaded) &&
+    (result.sourceLabel === 'enrichment' ||
+      result.product?.source === 'manual_entry' ||
+      result.product?.source === 'text_scan');
 
   return (
     <section aria-live="polite" className="result-card">
@@ -137,6 +147,22 @@ export function ResultCard({ result }: ResultCardProps) {
               ))}
             </div>
           </details>
+        ) : null}
+
+        {shouldOfferPhotoUpload && result.barcode ? (
+          <div className="detail-panel">
+            <span className="detail-label">Add a product photo?</span>
+            <p className="upload-panel-copy">
+              Take or upload a photo so this enriched record is easier to identify later.
+            </p>
+            <ProductPhotoUpload
+              barcode={result.barcode}
+              buttonLabel="Take or upload product photo"
+              helperText="Add a product photo to make this saved enrichment easier to recognize."
+              onUploaded={(imageUrl) => onPhotoUploaded?.(imageUrl)}
+              successText="Product photo saved."
+            />
+          </div>
         ) : null}
 
         <div className="reminder-banner">

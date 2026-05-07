@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from sqlalchemy import inspect, or_, text
@@ -20,6 +21,7 @@ from app.models import (
 from app.models.records import utcnow
 from app.schemas.ingredients import AllergyProfile
 from app.schemas.history import (
+    GroupedScanHistoryEntry,
     InconsistentBarcodeSummaryEntry,
     MissedBarcodeSummaryEntry,
     ScanHistoryEntry,
@@ -28,6 +30,14 @@ from app.schemas.products import NormalizedProduct, SavedProductEntry
 from app.services.seed_rules import SeedIngredientRule, load_seed_rule_set
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ProductPhotoUpdateResult:
+    barcode: str
+    image_url: str
+    updated: bool
+    message: str
 
 
 def prepare_persistence() -> bool:
@@ -186,6 +196,58 @@ def upsert_product(product: NormalizedProduct) -> Optional[int]:
         return None
 
 
+def save_product_photo(
+    barcode: str,
+    image_url: str,
+    overwrite: bool = False,
+) -> Optional[ProductPhotoUpdateResult]:
+    try:
+        with session_scope() as session:
+            record = session.exec(select(Product).where(Product.barcode == barcode)).first()
+
+            if record is None:
+                has_history = session.exec(
+                    select(ScanHistory.id).where(ScanHistory.submitted_barcode == barcode).limit(1)
+                ).first()
+                if has_history is None:
+                    return None
+
+                record = Product(
+                    barcode=barcode,
+                    product_name=None,
+                    brand_name=None,
+                    image_url=None,
+                    ingredient_text=None,
+                    ingredient_coverage_status="unknown",
+                    source="manual_entry",
+                )
+
+            if record.image_url and not overwrite:
+                return ProductPhotoUpdateResult(
+                    barcode=barcode,
+                    image_url=record.image_url,
+                    updated=False,
+                    message=(
+                        "This saved product already has an image. Use overwrite=true to replace it."
+                    ),
+                )
+
+            record.image_url = image_url
+            record.updated_at = utcnow()
+            session.add(record)
+            session.commit()
+
+            return ProductPhotoUpdateResult(
+                barcode=barcode,
+                image_url=image_url,
+                updated=True,
+                message="Product photo saved.",
+            )
+    except Exception:
+        logger.exception("Product photo update failed for barcode %s", barcode)
+        return None
+
+
 def persist_scan_result(
     ingredient_text: str,
     result: dict,
@@ -276,15 +338,40 @@ def list_recent_scan_history(
         return []
 
 
+def list_grouped_useful_scan_history(limit: int = 20) -> List[GroupedScanHistoryEntry]:
+    try:
+        with session_scope() as session:
+            scans = session.exec(select(ScanHistory).order_by(ScanHistory.created_at.desc())).all()
+            products_by_id = _load_products_for_scans(session, scans)
+
+            grouped: dict[tuple[str, str], list[ScanHistoryEntry]] = defaultdict(list)
+            manual_entries: list[GroupedScanHistoryEntry] = []
+
+            for scan in scans:
+                entry = _scan_history_entry_from_record(scan, products_by_id)
+                if is_unresolved_barcode_lookup_miss(entry) or is_inconsistent_provider_record(entry):
+                    continue
+
+                if entry.barcode and entry.scan_type in {"barcode_lookup", "barcode_enrichment"}:
+                    grouped[(entry.scan_type, entry.barcode)].append(entry)
+                    continue
+
+                manual_entries.append(_grouped_scan_history_entry([entry]))
+
+            grouped_entries = [_grouped_scan_history_entry(entries) for entries in grouped.values()]
+            all_entries = grouped_entries + manual_entries
+            all_entries.sort(key=lambda item: item.last_seen_at, reverse=True)
+            return all_entries[:limit]
+    except Exception:
+        logger.exception("Grouped useful scan history lookup failed.")
+        return []
+
+
 def list_missed_barcodes(limit: int = 20) -> List[MissedBarcodeSummaryEntry]:
     try:
         with session_scope() as session:
             scans = session.exec(select(ScanHistory).order_by(ScanHistory.created_at.desc())).all()
-            product_ids = [scan.product_id for scan in scans if scan.product_id is not None]
-            products_by_id: Dict[int, Product] = {}
-            if product_ids:
-                products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
-                products_by_id = {product.id: product for product in products if product.id is not None}
+            products_by_id = _load_products_for_scans(session, scans)
 
             grouped: dict[str, list[ScanHistoryEntry]] = defaultdict(list)
             for scan in scans:
@@ -317,11 +404,7 @@ def list_inconsistent_barcodes(limit: int = 20) -> List[InconsistentBarcodeSumma
     try:
         with session_scope() as session:
             scans = session.exec(select(ScanHistory).order_by(ScanHistory.created_at.desc())).all()
-            product_ids = [scan.product_id for scan in scans if scan.product_id is not None]
-            products_by_id: Dict[int, Product] = {}
-            if product_ids:
-                products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
-                products_by_id = {product.id: product for product in products if product.id is not None}
+            products_by_id = _load_products_for_scans(session, scans)
 
             grouped: dict[str, list[ScanHistoryEntry]] = defaultdict(list)
             for scan in scans:
@@ -365,6 +448,39 @@ def _scan_history_entry_from_record(
         matched_ingredient_summary=build_matched_ingredient_summary(scan.matched_ingredients),
         created_at=scan.created_at,
     )
+
+
+def _grouped_scan_history_entry(entries: List[ScanHistoryEntry]) -> GroupedScanHistoryEntry:
+    latest_entry = _latest_entry(entries)
+    first_seen_at = min(entry.created_at for entry in entries)
+    last_seen_at = max(entry.created_at for entry in entries)
+    return GroupedScanHistoryEntry(
+        scan_type=latest_entry.scan_type,
+        grouped_scan_type=latest_entry.scan_type,
+        barcode=latest_entry.barcode,
+        product_name=latest_entry.product_name,
+        brand_name=latest_entry.brand_name,
+        image_url=latest_entry.image_url,
+        product_source=latest_entry.product_source,
+        submitted_ingredient_text=latest_entry.submitted_ingredient_text,
+        assessment_status=latest_entry.assessment_status,
+        explanation=latest_entry.explanation,
+        matched_ingredient_summary=latest_entry.matched_ingredient_summary,
+        scan_count=len(entries),
+        first_seen_at=first_seen_at,
+        last_seen_at=last_seen_at,
+        latest_explanation=latest_entry.explanation,
+        latest_source=latest_entry.product_source,
+    )
+
+
+def _load_products_for_scans(session: Session, scans: List[ScanHistory]) -> Dict[int, Product]:
+    product_ids = [scan.product_id for scan in scans if scan.product_id is not None]
+    if not product_ids:
+        return {}
+
+    products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
+    return {product.id: product for product in products if product.id is not None}
 
 
 def is_unresolved_barcode_lookup_miss(entry: ScanHistoryEntry) -> bool:

@@ -39,6 +39,13 @@ export interface ProductLookupResponse {
   unknown_terms: string[];
 }
 
+export interface ProductPhotoUploadResponse {
+  barcode: string;
+  image_url: string;
+  updated: boolean;
+  message: string;
+}
+
 export interface IngredientCheckResponse {
   status: IngredientCheckStatus;
   matched_ingredients: MatchedIngredient[];

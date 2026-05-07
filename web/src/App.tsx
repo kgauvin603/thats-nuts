@@ -51,6 +51,22 @@ function App() {
     setResult(fromIngredientResponse(ingredientText, response));
   }
 
+  function handleResultPhotoUploaded(imageUrl: string) {
+    setResult((currentResult) => {
+      if (!currentResult || currentResult.mode !== 'barcode' || !currentResult.product) {
+        return currentResult;
+      }
+
+      return {
+        ...currentResult,
+        product: {
+          ...currentResult.product,
+          image_url: imageUrl,
+        },
+      };
+    });
+  }
+
   return (
     <div className="page-shell">
       {!isDisclaimerAccepted ? (
@@ -144,7 +160,12 @@ function App() {
           </section>
         ) : null}
 
-        {result ? <ResultCard result={result} /> : null}
+        {result ? (
+          <ResultCard
+            onPhotoUploaded={handleResultPhotoUploaded}
+            result={result}
+          />
+        ) : null}
       </main>
     </div>
   );
