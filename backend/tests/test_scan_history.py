@@ -5,7 +5,11 @@ from app.api.routes.check_ingredients import check_ingredients
 from app.api.routes.product_lookup import enrich_product, lookup_product
 from app.core.config import get_settings
 from app.db.session import get_engine
-from app.api.routes.scan_history import missed_barcode_summary, recent_scan_history
+from app.api.routes.scan_history import (
+    inconsistent_barcode_summary,
+    missed_barcode_summary,
+    recent_scan_history,
+)
 from app.schemas.ingredients import IngredientCheckRequest
 from app.schemas.products import ProductEnrichmentRequest, ProductLookupRequest
 from app.services.product_lookup import get_product_lookup_service
@@ -51,6 +55,34 @@ def test_recent_scan_history_returns_manual_and_barcode_checks(temp_database):
     assert older_item.matched_ingredient_summary == "Prunus Amygdalus Dulcis Oil"
     assert older_item.created_at is not None
     assert "Detected an almond-linked ingredient in this product:" in older_item.explanation
+
+
+def test_recent_scan_history_default_includes_successful_and_enriched_entries_only(temp_database):
+    assert prepare_persistence() is True
+
+    check_ingredients(
+        IngredientCheckRequest(
+            ingredient_text="Water, Glycerin, Prunus Amygdalus Dulcis Oil",
+        )
+    )
+    lookup_product(ProductLookupRequest(barcode="0001234567890"))
+    enrich_product(
+        ProductEnrichmentRequest(
+            barcode="5555555555555",
+            product_name="Demo Lotion",
+            brand_name="Demo Brand",
+            ingredient_text="Water, Sweet Almond Oil",
+            source="text_scan",
+        )
+    )
+
+    response = recent_scan_history(limit=10)
+
+    assert [item.scan_type for item in response.items] == [
+        "barcode_enrichment",
+        "barcode_lookup",
+        "manual_ingredient_check",
+    ]
 
 
 def test_recent_scan_history_respects_limit(temp_database):
@@ -150,13 +182,37 @@ def test_recent_scan_history_keeps_inconsistent_provider_records_visible(temp_da
         submitted_barcode="0041167055106",
     )
 
-    response = recent_scan_history(limit=10)
+    response = recent_scan_history(limit=10, include_inconsistent=True)
 
     assert len(response.items) == 1
     item = response.items[0]
     assert item.barcode == "0041167055106"
     assert item.assessment_status == "cannot_verify"
     assert "inconsistent product details" in (item.explanation or "")
+
+
+def test_recent_scan_history_default_excludes_inconsistent_provider_records(temp_database):
+    assert prepare_persistence() is True
+
+    from app.services.persistence import persist_scan_result
+
+    persist_scan_result(
+        "",
+        {
+            "status": "cannot_verify",
+            "matched_ingredients": [],
+            "explanation": (
+                "A product record was found, but the lookup source returned inconsistent "
+                "product details. Please verify the physical label or enter the ingredients manually."
+            ),
+        },
+        scan_type="barcode_lookup",
+        submitted_barcode="0041167055106",
+    )
+
+    response = recent_scan_history(limit=10)
+
+    assert response.items == []
 
 
 def test_missed_barcode_summary_groups_repeated_misses(temp_database):
@@ -181,6 +237,93 @@ def test_missed_barcode_summary_groups_repeated_misses(temp_database):
 
     assert second.barcode == "8888888888888"
     assert second.miss_count == 1
+
+
+def test_inconsistent_barcode_summary_groups_repeated_inconsistent_records(temp_database):
+    assert prepare_persistence() is True
+
+    from app.services.persistence import persist_scan_result
+
+    for _ in range(2):
+        persist_scan_result(
+            "",
+            {
+                "status": "cannot_verify",
+                "matched_ingredients": [],
+                "explanation": (
+                    "A product record was found, but the lookup source returned inconsistent "
+                    "product details. Please verify the physical label or enter the ingredients manually."
+                ),
+            },
+            scan_type="barcode_lookup",
+            submitted_barcode="0041167055106",
+        )
+
+    persist_scan_result(
+        "",
+        {
+            "status": "cannot_verify",
+            "matched_ingredients": [],
+            "explanation": (
+                "A product record was found, but the lookup source returned inconsistent "
+                "product details. Please verify the physical label or enter the ingredients manually."
+            ),
+        },
+        scan_type="barcode_lookup",
+        submitted_barcode="0000000000001",
+    )
+
+    response = inconsistent_barcode_summary(limit=10)
+
+    assert len(response.items) == 2
+    first = response.items[0]
+    second = response.items[1]
+
+    assert first.barcode == "0041167055106"
+    assert first.count == 2
+    assert first.product_quality_status == "inconsistent"
+    assert first.first_seen_at <= first.last_seen_at
+
+    assert second.barcode == "0000000000001"
+    assert second.count == 1
+
+
+def test_inconsistent_record_is_not_counted_as_simple_miss(temp_database):
+    assert prepare_persistence() is True
+
+    from app.services.persistence import persist_scan_result
+
+    persist_scan_result(
+        "",
+        {
+            "status": "cannot_verify",
+            "matched_ingredients": [],
+            "explanation": (
+                "A product record was found, but the lookup source returned inconsistent "
+                "product details. Please verify the physical label or enter the ingredients manually."
+            ),
+        },
+        scan_type="barcode_lookup",
+        submitted_barcode="0041167055106",
+    )
+
+    missed = missed_barcode_summary(limit=10)
+    inconsistent = inconsistent_barcode_summary(limit=10)
+
+    assert missed.items == []
+    assert len(inconsistent.items) == 1
+
+
+def test_simple_miss_is_not_counted_as_inconsistent(temp_database):
+    assert prepare_persistence() is True
+
+    lookup_product(ProductLookupRequest(barcode="9999999999999"))
+
+    missed = missed_barcode_summary(limit=10)
+    inconsistent = inconsistent_barcode_summary(limit=10)
+
+    assert len(missed.items) == 1
+    assert inconsistent.items == []
 
 
 def test_recent_scan_history_migrates_legacy_database_rows(monkeypatch, tmp_path):

@@ -8,6 +8,10 @@ export interface MissedBarcodeSummaryResponse {
   items: MissedBarcodeSummaryItem[];
 }
 
+export interface InconsistentBarcodeSummaryResponse {
+  items: InconsistentBarcodeSummaryItem[];
+}
+
 export interface ScanHistoryItem {
   scan_type: 'manual_ingredient_check' | 'barcode_lookup' | 'barcode_enrichment';
   barcode?: string | null;
@@ -28,6 +32,16 @@ export interface MissedBarcodeSummaryItem {
   first_seen_at: string;
   last_seen_at: string;
   latest_explanation?: string | null;
+}
+
+export interface InconsistentBarcodeSummaryItem {
+  barcode: string;
+  count: number;
+  first_seen_at: string;
+  last_seen_at: string;
+  latest_explanation?: string | null;
+  latest_source?: string | null;
+  product_quality_status: 'inconsistent';
 }
 
 export interface HistoryEntry {
@@ -52,6 +66,17 @@ export interface MissedBarcodeEntry {
   firstSeenAt: string;
   lastSeenAt: string;
   latestExplanation?: string;
+}
+
+export interface InconsistentBarcodeEntry {
+  id: string;
+  barcode: string;
+  count: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  latestExplanation?: string;
+  latestSource?: string;
+  productQualityStatus: 'inconsistent';
 }
 
 export function toHistoryEntries(response: ScanHistoryResponse): HistoryEntry[] {
@@ -117,5 +142,20 @@ export function toMissedBarcodeEntries(
     firstSeenAt: formatDateTime(item.first_seen_at),
     lastSeenAt: formatDateTime(item.last_seen_at),
     latestExplanation: item.latest_explanation ?? undefined,
+  }));
+}
+
+export function toInconsistentBarcodeEntries(
+  response: InconsistentBarcodeSummaryResponse,
+): InconsistentBarcodeEntry[] {
+  return response.items.map((item) => ({
+    id: `${item.barcode}-${item.last_seen_at}`,
+    barcode: item.barcode,
+    count: item.count,
+    firstSeenAt: formatDateTime(item.first_seen_at),
+    lastSeenAt: formatDateTime(item.last_seen_at),
+    latestExplanation: item.latest_explanation ?? undefined,
+    latestSource: item.latest_source ?? undefined,
+    productQualityStatus: item.product_quality_status,
   }));
 }

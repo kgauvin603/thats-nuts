@@ -240,6 +240,18 @@ p {
   gap: 1rem;
 }
 
+.history-subsection {
+  display: grid;
+  gap: 1rem;
+}
+
+.history-subsection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+}
+
 .history-header {
   display: flex;
   justify-content: space-between;
@@ -273,17 +285,9 @@ p {
   margin-top: 0.15rem;
 }
 
-.missed-barcode-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  gap: 1rem;
-}
-
 .missed-barcode-list {
   display: grid;
   gap: 0.8rem;
-  margin-top: 1rem;
 }
 
 .missed-barcode-card {
@@ -301,6 +305,11 @@ p {
 .missed-barcode-meta {
   display: grid;
   gap: 0.55rem;
+}
+
+.history-inline-note {
+  color: var(--color-muted);
+  font-weight: 700;
 }
 
 .history-card {
@@ -641,6 +650,11 @@ code {
   }
 
   .history-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .history-subsection-header {
     align-items: start;
     flex-direction: column;
   }

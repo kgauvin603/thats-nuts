@@ -4,6 +4,7 @@ import type {
   ProductLookupResponse,
 } from './types';
 import type {
+  InconsistentBarcodeSummaryResponse,
   MissedBarcodeSummaryResponse,
   ScanHistoryResponse,
 } from './history';
@@ -70,5 +71,11 @@ export function fetchScanHistory(limit = 20) {
 export function fetchMissedBarcodeSummary(limit = 10) {
   return getJson<MissedBarcodeSummaryResponse>(
     `/scan-history/missed-barcodes?limit=${limit}`,
+  );
+}
+
+export function fetchInconsistentBarcodeSummary(limit = 10) {
+  return getJson<InconsistentBarcodeSummaryResponse>(
+    `/scan-history/inconsistent-barcodes?limit=${limit}`,
   );
 }

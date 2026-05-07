@@ -41,3 +41,17 @@ class MissedBarcodeSummaryEntry(BaseModel):
 
 class MissedBarcodeSummaryResponse(BaseModel):
     items: List[MissedBarcodeSummaryEntry] = Field(default_factory=list)
+
+
+class InconsistentBarcodeSummaryEntry(BaseModel):
+    barcode: str
+    count: int
+    first_seen_at: datetime
+    last_seen_at: datetime
+    latest_explanation: Optional[str] = None
+    latest_source: Optional[str] = None
+    product_quality_status: Literal["inconsistent"] = "inconsistent"
+
+
+class InconsistentBarcodeSummaryResponse(BaseModel):
+    items: List[InconsistentBarcodeSummaryEntry] = Field(default_factory=list)

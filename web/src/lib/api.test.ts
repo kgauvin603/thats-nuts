@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchMissedBarcodeSummary, getApiBaseUrl, lookupProduct } from './api';
+import {
+  fetchInconsistentBarcodeSummary,
+  fetchMissedBarcodeSummary,
+  getApiBaseUrl,
+  lookupProduct,
+} from './api';
 
 describe('api configuration', () => {
   afterEach(() => {
@@ -48,6 +53,18 @@ describe('api configuration', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.thatsnuts.activeadvantage.co/scan-history/missed-barcodes?limit=10',
+    );
+  });
+
+  it('fetches inconsistent barcode telemetry from the expected backend route', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200 }));
+
+    await fetchInconsistentBarcodeSummary(10);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.thatsnuts.activeadvantage.co/scan-history/inconsistent-barcodes?limit=10',
     );
   });
 });

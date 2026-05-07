@@ -9,6 +9,7 @@ import {
 
 vi.mock('./lib/api', () => ({
   checkIngredients: vi.fn(),
+  fetchInconsistentBarcodeSummary: vi.fn().mockResolvedValue({ items: [] }),
   fetchMissedBarcodeSummary: vi.fn().mockResolvedValue({ items: [] }),
   fetchScanHistory: vi.fn().mockResolvedValue({ items: [] }),
   getApiBaseUrl: () => 'https://api.thatsnuts.activeadvantage.co',

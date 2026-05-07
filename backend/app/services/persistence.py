@@ -19,7 +19,11 @@ from app.models import (
 )
 from app.models.records import utcnow
 from app.schemas.ingredients import AllergyProfile
-from app.schemas.history import MissedBarcodeSummaryEntry, ScanHistoryEntry
+from app.schemas.history import (
+    InconsistentBarcodeSummaryEntry,
+    MissedBarcodeSummaryEntry,
+    ScanHistoryEntry,
+)
 from app.schemas.products import NormalizedProduct, SavedProductEntry
 from app.services.seed_rules import SeedIngredientRule, load_seed_rule_set
 
@@ -242,7 +246,11 @@ MISS_EXPLANATION_MARKERS = (
 INCONSISTENT_EXPLANATION_MARKER = "source returned inconsistent product details"
 
 
-def list_recent_scan_history(limit: int = 20, include_misses: bool = False) -> List[ScanHistoryEntry]:
+def list_recent_scan_history(
+    limit: int = 20,
+    include_misses: bool = False,
+    include_inconsistent: bool = False,
+) -> List[ScanHistoryEntry]:
     try:
         with session_scope() as session:
             scans = session.exec(select(ScanHistory).order_by(ScanHistory.created_at.desc())).all()
@@ -256,6 +264,8 @@ def list_recent_scan_history(limit: int = 20, include_misses: bool = False) -> L
             for scan in scans:
                 entry = _scan_history_entry_from_record(scan, products_by_id)
                 if not include_misses and is_unresolved_barcode_lookup_miss(entry):
+                    continue
+                if not include_inconsistent and is_inconsistent_provider_record(entry):
                     continue
                 items.append(entry)
                 if len(items) >= limit:
@@ -303,6 +313,40 @@ def list_missed_barcodes(limit: int = 20) -> List[MissedBarcodeSummaryEntry]:
         return []
 
 
+def list_inconsistent_barcodes(limit: int = 20) -> List[InconsistentBarcodeSummaryEntry]:
+    try:
+        with session_scope() as session:
+            scans = session.exec(select(ScanHistory).order_by(ScanHistory.created_at.desc())).all()
+            product_ids = [scan.product_id for scan in scans if scan.product_id is not None]
+            products_by_id: Dict[int, Product] = {}
+            if product_ids:
+                products = session.exec(select(Product).where(Product.id.in_(product_ids))).all()
+                products_by_id = {product.id: product for product in products if product.id is not None}
+
+            grouped: dict[str, list[ScanHistoryEntry]] = defaultdict(list)
+            for scan in scans:
+                entry = _scan_history_entry_from_record(scan, products_by_id)
+                if is_inconsistent_provider_record(entry) and entry.barcode:
+                    grouped[entry.barcode].append(entry)
+
+            summaries = [
+                InconsistentBarcodeSummaryEntry(
+                    barcode=barcode,
+                    count=len(entries),
+                    first_seen_at=min(entry.created_at for entry in entries),
+                    last_seen_at=max(entry.created_at for entry in entries),
+                    latest_explanation=_latest_entry(entries).explanation,
+                    latest_source=_latest_entry(entries).product_source,
+                )
+                for barcode, entries in grouped.items()
+            ]
+            summaries.sort(key=lambda item: (-item.count, -item.last_seen_at.timestamp()))
+            return summaries[:limit]
+    except Exception:
+        logger.exception("Inconsistent barcode summary lookup failed.")
+        return []
+
+
 def _scan_history_entry_from_record(
     scan: ScanHistory,
     products_by_id: Dict[int, Product],
@@ -344,6 +388,25 @@ def is_unresolved_barcode_lookup_miss(entry: ScanHistoryEntry) -> bool:
         return False
 
     return any(marker in explanation for marker in MISS_EXPLANATION_MARKERS)
+
+
+def is_inconsistent_provider_record(entry: ScanHistoryEntry) -> bool:
+    if entry.scan_type != "barcode_lookup":
+        return False
+    if not entry.barcode:
+        return False
+    if entry.assessment_status != "cannot_verify":
+        return False
+    explanation = (entry.explanation or "").strip().lower()
+    if INCONSISTENT_EXPLANATION_MARKER in explanation:
+        return True
+    if entry.product_source and entry.product_source.endswith("_inconsistent"):
+        return True
+    return False
+
+
+def _latest_entry(entries: List[ScanHistoryEntry]) -> ScanHistoryEntry:
+    return sorted(entries, key=lambda entry: entry.created_at, reverse=True)[0]
 
 
 def ensure_products_schema() -> bool:
