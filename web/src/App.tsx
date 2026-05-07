@@ -83,7 +83,7 @@ function App() {
             </a>
           </div>
           <p className="hero-caption">
-            That’sNuts is informational only. Final product safety decisions are
+            That’s Nuts is informational only. Final product safety decisions are
             always yours.
           </p>
         </div>
@@ -108,13 +108,13 @@ function App() {
           <span className="eyebrow">A calm companion</span>
           <h2>Readable product-safety guidance</h2>
           <p>
-            This site mirrors the That’sNuts mobile app’s tone: warm, trustworthy,
+            This site mirrors the That’s Nuts mobile app’s tone: warm, trustworthy,
             and careful about uncertainty. When a match appears, the UI stays calm.
             When no match appears, the language stays cautious.
           </p>
         </section>
 
-        <section className="tools-grid" aria-label="That’sNuts tools">
+        <section className="tools-grid" aria-label="That’s Nuts tools">
           <LookupForm
             disabled={!isDisclaimerAccepted}
             onLockedAttempt={handleLockedAttempt}

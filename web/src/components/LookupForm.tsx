@@ -51,7 +51,7 @@ export function LookupForm({
         <span className="eyebrow">Barcode review</span>
         <h2>Check a barcode</h2>
         <p>
-          Use the public That’sNuts API to look up product details, ingredient text,
+          Use the public That’s Nuts API to look up product details, ingredient text,
           and current rule matches.
         </p>
       </div>

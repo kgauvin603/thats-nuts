@@ -125,6 +125,9 @@ textarea {
 .acorn-mark {
   width: 58px;
   height: 58px;
+  display: block;
+  object-fit: cover;
+  border-radius: 18px;
 }
 
 .eyebrow,

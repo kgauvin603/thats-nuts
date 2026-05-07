@@ -1,6 +1,6 @@
-# That’sNuts Web Companion
+# That’s Nuts Web Companion
 
-Static React + Vite + TypeScript companion site for the That’sNuts project. This app is intended to build into static files and be served directly by Nginx, not by a persistent Node service.
+Static React + Vite + TypeScript companion site for the That’s Nuts project. This app is intended to build into static files and be served directly by Nginx, not by a persistent Node service.
 
 ## Local development
 

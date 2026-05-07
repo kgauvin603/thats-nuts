@@ -13,9 +13,38 @@ vi.mock('./lib/api', () => ({
   lookupProduct: vi.fn(),
 }));
 
+function createStorageMock() {
+  const store = new Map<string, string>();
+
+  return {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+  };
+}
+
 describe('App disclaimer gate', () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    Object.defineProperty(window, 'localStorage', {
+      value: createStorageMock(),
+      configurable: true,
+    });
+  });
+
+  it('shows the mobile app branding in the header', () => {
+    render(<App />);
+
+    expect(
+      screen.getByRole('heading', { name: 'That’s Nuts' }),
+    ).toBeInTheDocument();
+    expect(screen.getByAltText('That’s Nuts app icon')).toBeInTheDocument();
   });
 
   it('prevents use before disclaimer acceptance', () => {

@@ -15,14 +15,14 @@ describe('ProductImageCard', () => {
   });
 
   it('shows a placeholder when the image fails to load', () => {
-    render(
+    const view = render(
       <ProductImageCard
         imageUrl="https://images.example.invalid/missing.jpg"
         productName="Nutella"
       />,
     );
 
-    fireEvent.error(screen.getByAltText('Nutella'));
+    fireEvent.error(view.getByAltText('Nutella'));
 
     expect(screen.getByLabelText('Product image placeholder')).toBeInTheDocument();
   });
