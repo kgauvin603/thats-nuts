@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 interface ProductImageCardProps {
   imageUrl?: string | null;
   productName?: string | null;
+  placeholderContent?: ReactNode;
 }
 
 export function ProductImageCard({
   imageUrl,
   productName,
+  placeholderContent,
 }: ProductImageCardProps) {
   const [hasFailed, setHasFailed] = useState(false);
   const showImage = Boolean(imageUrl) && !hasFailed;
@@ -22,12 +24,14 @@ export function ProductImageCard({
           src={imageUrl ?? undefined}
         />
       ) : (
-        <div
-          aria-label="Product image placeholder"
-          className="product-image-placeholder"
-        >
-          <span>No product photo available</span>
-        </div>
+        placeholderContent || (
+          <div
+            aria-label="Product image placeholder"
+            className="product-image-placeholder"
+          >
+            <span>No product photo available</span>
+          </div>
+        )
       )}
     </div>
   );

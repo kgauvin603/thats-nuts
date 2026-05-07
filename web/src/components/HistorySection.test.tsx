@@ -159,7 +159,10 @@ describe('HistorySection', () => {
     expect(screen.getByText('Demo Lotion')).toBeInTheDocument();
     expect(screen.getByText('Water, Sweet Almond Oil')).toBeInTheDocument();
     expect(screen.getByText('Water, Glycerin')).toBeInTheDocument();
-    expect(screen.getByText('Add product photo')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Add product photo for barcode 5555555555555' }),
+    ).toBeInTheDocument();
+    expect(screen.queryAllByText('Add product photo')).toHaveLength(1);
   });
 
   it('uploads a product photo from a no-image enrichment history entry', async () => {
@@ -197,7 +200,7 @@ describe('HistorySection', () => {
 
     render(<HistorySection />);
 
-    const input = await screen.findByLabelText('Add product photo');
+    const input = await screen.findByTestId('product-photo-input');
     await user.upload(
       input,
       new File(['image'], 'photo.png', { type: 'image/png' }),
@@ -208,6 +211,10 @@ describe('HistorySection', () => {
         '5555555555555',
         expect.any(File),
       );
+    });
+    await waitFor(() => {
+      expect(screen.getByAltText('Demo Lotion')).toBeInTheDocument();
+      expect(screen.getByText('Photo saved.')).toBeInTheDocument();
     });
   });
 
@@ -241,7 +248,7 @@ describe('HistorySection', () => {
 
     render(<HistorySection />);
 
-    const input = await screen.findByLabelText('Add product photo');
+    const input = await screen.findByTestId('product-photo-input');
     await user.upload(
       input,
       new File(['image'], 'photo.png', { type: 'image/png' }),
@@ -249,9 +256,106 @@ describe('HistorySection', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Product photo upload failed. Please try again.'),
+        screen.getByText('Photo could not be uploaded. Please try again.'),
       ).toBeInTheDocument();
     });
+  });
+
+  it('does not show upload controls for records without a barcode or with an image', async () => {
+    fetchGroupedScanHistory.mockResolvedValue({
+      items: [
+        {
+          scan_type: 'manual_ingredient_check',
+          grouped_scan_type: 'manual_ingredient_check',
+          barcode: null,
+          product_name: null,
+          brand_name: null,
+          image_url: null,
+          product_source: null,
+          submitted_ingredient_text: 'Water, Glycerin',
+          assessment_status: 'no_nut_ingredient_found',
+          explanation: 'No match found.',
+          matched_ingredient_summary: null,
+          scan_count: 1,
+          first_seen_at: '2026-05-07T11:32:00Z',
+          last_seen_at: '2026-05-07T11:32:00Z',
+          latest_explanation: 'No match found.',
+          latest_source: null,
+        },
+        {
+          scan_type: 'barcode_lookup',
+          grouped_scan_type: 'barcode_lookup',
+          barcode: '3017620422003',
+          product_name: 'Nutella',
+          brand_name: 'Ferrero',
+          image_url: 'https://images.example.invalid/nutella.jpg',
+          product_source: 'open_food_facts',
+          submitted_ingredient_text: null,
+          assessment_status: 'contains_nut_ingredient',
+          explanation: 'Hazelnut was detected.',
+          matched_ingredient_summary: 'NOISETTES 13%',
+          scan_count: 2,
+          first_seen_at: '2026-05-07T10:30:00Z',
+          last_seen_at: '2026-05-07T11:30:00Z',
+          latest_explanation: 'Hazelnut was detected.',
+          latest_source: 'open_food_facts',
+        },
+      ],
+    });
+    fetchInconsistentBarcodeSummary.mockResolvedValue({ items: [] });
+    fetchMissedBarcodeSummary.mockResolvedValue({ items: [] });
+
+    render(<HistorySection />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Nutella')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByRole('button', { name: 'Add product photo for barcode 3017620422003' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Add product photo for barcode/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show upload controls in inconsistent or unresolved sections', async () => {
+    fetchGroupedScanHistory.mockResolvedValue({ items: [] });
+    fetchInconsistentBarcodeSummary.mockResolvedValue({
+      items: [
+        {
+          barcode: '0041167055106',
+          count: 2,
+          first_seen_at: '2026-05-07T10:30:00Z',
+          last_seen_at: '2026-05-07T12:30:00Z',
+          latest_explanation: 'Inconsistent product details.',
+          latest_source: 'open_beauty_facts_inconsistent',
+          product_quality_status: 'inconsistent',
+        },
+      ],
+    });
+    fetchMissedBarcodeSummary.mockResolvedValue({
+      items: [
+        {
+          barcode: '9999999999999',
+          miss_count: 3,
+          first_seen_at: '2026-05-07T11:30:00Z',
+          last_seen_at: '2026-05-07T12:30:00Z',
+          latest_explanation: 'No product record with a usable ingredient list was found.',
+        },
+      ],
+    });
+
+    render(<HistorySection />);
+
+    await waitFor(() => {
+      expect(screen.getByText('0041167055106')).toBeInTheDocument();
+      expect(screen.getByText('9999999999999')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByRole('button', { name: /Add product photo for barcode/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('refreshes history when the refresh button is pressed', async () => {

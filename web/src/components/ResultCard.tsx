@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { RESULT_REMINDER } from '../lib/constants';
 import type { UnifiedResult } from '../lib/types';
 import { ProductPhotoUpload } from './ProductPhotoUpload';
@@ -42,6 +43,10 @@ function getStatusMeta(status: UnifiedResult['status']) {
 }
 
 export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
+  const [uploadNotice, setUploadNotice] = useState<{
+    tone: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const meta = getStatusMeta(result.status);
   const hasProductDetails =
     result.mode === 'barcode' &&
@@ -58,6 +63,10 @@ export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
       result.product?.source === 'manual_entry' ||
       result.product?.source === 'text_scan');
 
+  useEffect(() => {
+    setUploadNotice(null);
+  }, [result.barcode, result.product?.image_url, result.sourceLabel]);
+
   return (
     <section aria-live="polite" className="result-card">
       <div className={`result-status result-status-${meta.tone}`}>
@@ -73,6 +82,24 @@ export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
           <ProductImageCard
             imageUrl={result.product?.image_url}
             productName={result.product?.product_name}
+            placeholderContent={
+              shouldOfferPhotoUpload && result.barcode ? (
+                <ProductPhotoUpload
+                  accessibleLabel={`Add product photo for barcode ${result.barcode}`}
+                  barcode={result.barcode}
+                  buttonLabel="Add product photo"
+                  onUploaded={(imageUrl) => {
+                    setUploadNotice({ tone: 'success', message: 'Photo saved.' });
+                    onPhotoUploaded?.(imageUrl);
+                  }}
+                  onUploadError={(message) => {
+                    setUploadNotice({ tone: 'error', message });
+                  }}
+                  showStatus={false}
+                  variant="placeholder"
+                />
+              ) : undefined
+            }
           />
           <div className="stack">
             <div className="detail-panel">
@@ -92,6 +119,12 @@ export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {uploadNotice ? (
+        <p className={uploadNotice.tone === 'success' ? 'photo-upload-success' : 'photo-upload-error'}>
+          {uploadNotice.message}
+        </p>
       ) : null}
 
       <div className="stack">
@@ -147,22 +180,6 @@ export function ResultCard({ result, onPhotoUploaded }: ResultCardProps) {
               ))}
             </div>
           </details>
-        ) : null}
-
-        {shouldOfferPhotoUpload && result.barcode ? (
-          <div className="detail-panel">
-            <span className="detail-label">Add a product photo?</span>
-            <p className="upload-panel-copy">
-              Take or upload a photo so this enriched record is easier to identify later.
-            </p>
-            <ProductPhotoUpload
-              barcode={result.barcode}
-              buttonLabel="Take or upload product photo"
-              helperText="Add a product photo to make this saved enrichment easier to recognize."
-              onUploaded={(imageUrl) => onPhotoUploaded?.(imageUrl)}
-              successText="Product photo saved."
-            />
-          </div>
         ) : null}
 
         <div className="reminder-banner">

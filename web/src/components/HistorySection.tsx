@@ -26,6 +26,9 @@ export function HistorySection() {
   const [isMissesLoading, setIsMissesLoading] = useState(true);
   const [missesError, setMissesError] = useState(false);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
+  const [uploadNotices, setUploadNotices] = useState<
+    Record<string, { tone: 'success' | 'error'; message: string }>
+  >({});
 
   async function loadHistory() {
     setIsHistoryLoading(true);
@@ -129,12 +132,48 @@ export function HistorySection() {
 
         {!isHistoryLoading && !historyError && entries.length > 0 ? (
           <div className="history-grid">
-            {entries.map((entry) => (
-              <article className="history-card" key={entry.id}>
+            {entries.map((entry) => {
+              const isPhotoUploadEligible =
+                Boolean(entry.barcode) &&
+                !imageOverrides[entry.barcode || ''] &&
+                !entry.imageUrl &&
+                (entry.rawScanType === 'barcode_enrichment' ||
+                  entry.productSource === 'manual_entry' ||
+                  entry.productSource === 'text_scan');
+
+              return (
+                <article className="history-card" key={entry.id}>
                 <div className="history-card-top">
                   <ProductImageCard
                     imageUrl={imageOverrides[entry.barcode || ''] || entry.imageUrl}
                     productName={entry.productName || entry.scanType}
+                    placeholderContent={
+                      isPhotoUploadEligible && entry.barcode ? (
+                        <ProductPhotoUpload
+                          accessibleLabel={`Add product photo for barcode ${entry.barcode}`}
+                          barcode={entry.barcode}
+                          buttonLabel="Add product photo"
+                          onUploaded={(imageUrl) => {
+                            setImageOverrides((current) => ({
+                              ...current,
+                              [entry.barcode!]: imageUrl,
+                            }));
+                            setUploadNotices((current) => ({
+                              ...current,
+                              [entry.barcode!]: { tone: 'success', message: 'Photo saved.' },
+                            }));
+                          }}
+                          onUploadError={(message) => {
+                            setUploadNotices((current) => ({
+                              ...current,
+                              [entry.barcode!]: { tone: 'error', message },
+                            }));
+                          }}
+                          showStatus={false}
+                          variant="placeholder"
+                        />
+                      ) : undefined
+                    }
                   />
                   <div className="history-card-summary">
                     <span className="detail-label">{entry.scanType}</span>
@@ -156,6 +195,17 @@ export function HistorySection() {
                     </div>
                   </div>
                 </div>
+                {entry.barcode && uploadNotices[entry.barcode] ? (
+                  <p
+                    className={
+                      uploadNotices[entry.barcode].tone === 'success'
+                        ? 'photo-upload-success'
+                        : 'photo-upload-error'
+                    }
+                  >
+                    {uploadNotices[entry.barcode].message}
+                  </p>
+                ) : null}
 
                 <div className="history-detail-grid">
                   {entry.barcode ? (
@@ -188,26 +238,9 @@ export function HistorySection() {
                   <span className="detail-label">Summary</span>
                   <p>{entry.explanation || 'No additional explanation was returned.'}</p>
                 </div>
-
-                {entry.barcode && !imageOverrides[entry.barcode] && !entry.imageUrl ? (
-                  <ProductPhotoUpload
-                    barcode={entry.barcode}
-                    buttonLabel={
-                      entry.rawScanType === 'barcode_enrichment'
-                        ? 'Add product photo'
-                        : 'Add photo'
-                    }
-                    helperText="Add a product photo to make this saved enrichment easier to recognize."
-                    onUploaded={(imageUrl) => {
-                      setImageOverrides((current) => ({
-                        ...current,
-                        [entry.barcode!]: imageUrl,
-                      }));
-                    }}
-                  />
-                ) : null}
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         ) : null}
       </section>

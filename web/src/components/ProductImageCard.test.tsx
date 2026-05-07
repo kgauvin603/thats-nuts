@@ -26,4 +26,16 @@ describe('ProductImageCard', () => {
 
     expect(screen.getByLabelText('Product image placeholder')).toBeInTheDocument();
   });
+
+  it('renders custom placeholder content when provided', () => {
+    render(
+      <ProductImageCard
+        imageUrl={null}
+        placeholderContent={<button type="button">Add product photo</button>}
+        productName="Nutella"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Add product photo' })).toBeInTheDocument();
+  });
 });

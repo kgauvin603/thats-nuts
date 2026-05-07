@@ -28,7 +28,7 @@ describe('ProductPhotoUpload', () => {
     );
 
     await user.upload(
-      screen.getByLabelText('Add product photo'),
+      screen.getByTestId('product-photo-input'),
       new File(['image'], 'photo.png', { type: 'image/png' }),
     );
 
@@ -50,14 +50,29 @@ describe('ProductPhotoUpload', () => {
     );
 
     await user.upload(
-      screen.getByLabelText('Add product photo'),
+      screen.getByTestId('product-photo-input'),
       new File(['image'], 'photo.png', { type: 'image/png' }),
     );
 
     await waitFor(() => {
       expect(
-        screen.getByText('Product photo upload failed. Please try again.'),
+        screen.getByText('Photo could not be uploaded. Please try again.'),
       ).toBeInTheDocument();
     });
+  });
+
+  it('renders a clickable placeholder target variant', () => {
+    render(
+      <ProductPhotoUpload
+        barcode="5555555555555"
+        onUploaded={vi.fn()}
+        variant="placeholder"
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Add product photo for barcode 5555555555555' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Take or upload a photo')).toBeInTheDocument();
   });
 });
